@@ -33,7 +33,7 @@ namespace Werewolf_Control
             };
 #endif
 
-        private static Player GetDBPlayer(long id, WWContext db)
+        private static Player GetDBPlayer(long id, WWCoreContext db)
         {
             return db.Players.FirstOrDefault(x => x.TelegramId == id);
         }
@@ -71,7 +71,7 @@ namespace Werewolf_Control
 #endif
 
             Group grp;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 grp = db.Groups.FirstOrDefault(x => x.GroupId == update.Message.Chat.Id);
                 if (grp == null)
@@ -147,7 +147,7 @@ namespace Werewolf_Control
             {
                 node.StartGame(update, gameMode);
                 //notify waiting players
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var notify = db.NotifyGames.Where(x => x.GroupId == update.Message.Chat.Id).ToList();
                     var groupName = update.Message.Chat.Title.ToBold();
@@ -269,7 +269,7 @@ namespace Werewolf_Control
         /// <returns></returns>
         public static string GetLanguage(long id)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 Player p = null;
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == id);
@@ -291,7 +291,7 @@ namespace Werewolf_Control
         /// <returns></returns>
         public static string GetLanguage(int id)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == id);
                 if (String.IsNullOrEmpty(p?.Language) && p != null)
@@ -408,7 +408,7 @@ namespace Werewolf_Control
             return d[n, m];
         }
 
-        public static Database.Group GetGroup(string str, WWContext db)
+        public static Database.Group GetGroup(string str, WWCoreContext db)
         {
             //try with id
             long id = 0;
@@ -425,3 +425,4 @@ namespace Werewolf_Control
         }
     }
 }
+

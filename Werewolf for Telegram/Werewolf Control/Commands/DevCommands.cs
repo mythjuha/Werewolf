@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlTypes;
@@ -10,10 +10,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms.DataVisualization.Charting;
 using System.Xml.Linq;
 using Database;
-using Newtonsoft.Json;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using ScottPlot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.Payments;
@@ -24,10 +25,13 @@ using Werewolf_Control.Models;
 using Werewolf_Control.Attributes;
 using File = System.IO.File;
 using Group = Database.Group;
-using RegHelper = Werewolf_Control.Helpers.RegHelper;
 using System.Collections;
 using System.Drawing;
 using Telegram.Bot;
+using Color = System.Drawing.Color;
+using Plot = ScottPlot.Plot;
+using Alignment = ScottPlot.Alignment;
+using ControlSettings = Werewolf_Control.Helpers.Settings;
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 #pragma warning disable IDE0060 // Remove unused parameter
@@ -47,7 +51,7 @@ namespace Werewolf_Control
 
             foreach (var name in gifLists)
             {
-                var field = typeof(Settings).GetField(name);
+                var field = typeof(ControlSettings).GetField(name);
                 var list = field.GetValue(null) as List<string>;
                 foreach (var g in list)
                 {
@@ -70,7 +74,7 @@ namespace Werewolf_Control
         {
             if (long.TryParse(args[1], out long groupid))
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var g = db.Groups.FirstOrDefault(x => x.GroupId == groupid);
                     if (g != null)
@@ -120,7 +124,7 @@ namespace Werewolf_Control
                 return;
             }
 
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == userid);
                 if (p == null)
@@ -189,7 +193,7 @@ namespace Werewolf_Control
                 Program.Running = false;
                 //Bot.Api.StopReceiving();
                 //Thread.Sleep(500);
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var bot =
 #if DEBUG
@@ -201,7 +205,7 @@ namespace Werewolf_Control
 #elif RELEASE2
                         2;
 #endif
-                    db.BotStatus.Find(bot).BotStatus = "Updating";
+                    db.BotStatuses.Find(bot).BotStatus = "Updating";
                     db.SaveChanges();
                 }
                 Environment.Exit(1);
@@ -301,7 +305,7 @@ namespace Werewolf_Control
             {
                 //get the node exe in this directory
                 var file = Directory.GetFiles(dir, "Werewolf Node.exe").First();
-                Version fvi = System.Version.Parse(FileVersionInfo.GetVersionInfo(file).FileVersion);
+                System.Version fvi = System.Version.Parse(FileVersionInfo.GetVersionInfo(file).FileVersion);
                 if (fvi > currentChoice.Version)
                 {
                     currentChoice.Path = file;
@@ -318,7 +322,7 @@ namespace Werewolf_Control
             if (args.Length > 1)
             {
                 var playerCount = int.Parse(args[1]);
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var counts = db.getPlayTime(playerCount).First();
                     var msg =
@@ -334,7 +338,7 @@ namespace Werewolf_Control
             if (args.Length > 1)
             {
                 var groupName = args.Skip(1).Aggregate((a, b) => a + " " + b).Trim();
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var roles = db.getRoles(groupName);
                     var msg = roles.Aggregate("", (current, r) => current + $"{r.name}: {r.role}\n");
@@ -421,13 +425,13 @@ namespace Werewolf_Control
         //    return rolesToAssign;
         //}
 
-        public class BalancedGameAttempt
-        {
-            public bool Balanced { get; set; }
-            public int AttemptsMade { get; set; }
-        }
+        //public class BalancedGameAttempt
+        //{
+        //    public bool Balanced { get; set; }
+        //    public int AttemptsMade { get; set; }
+        //}
 
-        private static Dictionary<int, List<BalancedGameAttempt>> BalancedAttempts;
+        //private static Dictionary<int, List<BalancedGameAttempt>> BalancedAttempts;
 
         //[Attributes.Command(Trigger = "createbalance", DevOnly = true)]
         //public static void CreateBalancedGames(Update u, string[] args)
@@ -501,56 +505,34 @@ namespace Werewolf_Control
         {
             Bot.Send("Please hold, creating chart...", update.Message.Chat.Id);
 
-            using (var chart = new Chart())
+            var chart = new Plot(5000, 2000);
+            chart.Title("Usage per month over time");
+            chart.XLabel("Month");
+            chart.YLabel("Players");
+
+            var xValues = new List<double>();
+            var xLabels = new List<string>();
+            var yValues = new List<double>();
+            using (var db = new WWCoreContext())
             {
-                //var gameSeries = chart.Series.Add("Games");
-                var playerSeries = chart.Series.Add("Players");
-                var title = chart.Titles.Add("Usage per month over time");
-                var chartArea = chart.ChartAreas.Add("Area");
-                var legend = chart.Legends.Add("Legend");
-
-                chart.Width = 5000;
-                chart.Height = 2000;
-
-                //gameSeries.ChartType = SeriesChartType.Spline;
-                //gameSeries.BorderWidth = 30;
-                //gameSeries.IsVisibleInLegend = true;
-
-                playerSeries.ChartType = SeriesChartType.Spline;
-                playerSeries.BorderWidth = 30;
-                playerSeries.IsVisibleInLegend = true;
-
-                title.Font = new Font(FontFamily.GenericSansSerif, 100);
-
-                chartArea.AxisX.LabelStyle.Font = new Font(FontFamily.GenericSansSerif, 80);
-                chartArea.AxisY.LabelStyle.Font = new Font(FontFamily.GenericSansSerif, 80);
-
-                legend.Font = new Font(FontFamily.GenericSansSerif, 80);
-                legend.Enabled = true;
-
-                using (var db = new WWContext())
+                for (DateTime month = new DateTime(2016, 04, 01); month < DateTime.UtcNow.Date; month = month.AddMonths(1))
                 {
-                    for (DateTime month = new DateTime(2016, 04, 01); month < DateTime.UtcNow.Date; month = month.AddMonths(1))
-                    {
-                        var next = month.AddMonths(1);
-
-                        var monthName = month.ToString("M/y");
-                        var games = db.Games.Where(x => x.TimeStarted >= month && x.TimeStarted < next);
-
-                        //gameSeries.Points.AddXY(monthName, games.Count());
-                        playerSeries.Points.AddXY(monthName, games.Sum(x => x.GamePlayers.Count));
-                    }
+                    var next = month.AddMonths(1);
+                    xValues.Add(xValues.Count);
+                    xLabels.Add(month.ToString("M/y"));
+                    var games = db.Games.Where(x => x.TimeStarted >= month && x.TimeStarted < next);
+                    yValues.Add(games.Sum(x => x.GamePlayers.Count));
                 }
+            }
 
-                using (var fs = new FileStream("Test.jpg", FileMode.Create))
-                {
-                    chart.SaveImage(fs, ChartImageFormat.Jpeg);
-                }
+            chart.AddScatter(xValues.ToArray(), yValues.ToArray(), Color.RoyalBlue, label: "Players", lineWidth: 4, markerSize: 8);
+            chart.Legend(location: Alignment.UpperLeft);
+            chart.XTicks(xValues.ToArray(), xLabels.ToArray());
+            chart.SaveFig("Test.jpg");
 
-                using (var fs = new FileStream("Test.jpg", FileMode.Open))
-                {
-                    Bot.Api.SendPhotoAsync(chatId: update.Message.Chat.Id, photo: new InputFile(fs, "Chart.jpg"), messageThreadId: update.Message.MessageThreadId).Wait();
-                }
+            using (var fs = new FileStream("Test.jpg", FileMode.Open))
+            {
+                Bot.Api.SendPhotoAsync(chatId: update.Message.Chat.Id, photo: new InputFileStream(fs, "Chart.jpg"), messageThreadId: update.Message.MessageThreadId).Wait();
             }
         }
 
@@ -588,11 +570,11 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "checkgroups", DevOnly = true)]
         public static void CheckGroupList(Update update, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 Bot.Send("Please hold, searching....", update.Message.Chat.Id);
 
-                var groups = db.Groups.Where(x => x.Preferred != false && x.GroupLink != null && x.GroupId != Settings.MainChatId && x.GroupId != Settings.VeteranChatId)
+                var groups = db.Groups.Where(x => x.Preferred != false && x.GroupLink != null && x.GroupId != ControlSettings.MainChatId && x.GroupId != ControlSettings.VeteranChatId)
                     .Select(x => new PossibleGroup() { GroupId = x.GroupId, GroupLink = x.GroupLink, MemberCount = x.MemberCount ?? 0, Name = x.Name }).ToList();
 
                 var ofcSpells = new[] { "official", "offciail", "official", "oficial", "offical" };
@@ -665,9 +647,9 @@ namespace Werewolf_Control
                 Send("You must enter a sql command...", u.Message.Chat.Id);
                 return;
             }
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
-                var conn = db.Database.Connection;
+                var conn = db.Database.GetDbConnection();
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
                 string raw = "";
@@ -730,7 +712,7 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "whois", DevOnly = true)]
         public static void WhoIs(Update u, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var search = long.Parse(args[1].Trim());
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == search);
@@ -750,7 +732,7 @@ namespace Werewolf_Control
         public static void AddDonation(Update u, string[] args)
         {
 #if !BETA
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = u.GetTarget(db);
                 if (p != null && p.Id != u.Message.From.Id)
@@ -817,7 +799,7 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "getbans", GlobalAdminOnly = true)]
         public static void GetBans(Update u, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var reply = "Spam Ban List:\n";
                 foreach (var id in UpdateHandler.SpamBanList)
@@ -860,7 +842,7 @@ namespace Werewolf_Control
                     case MessageEntityType.Mention:
                         //get user
                         var username = u.Message.Text.Substring(e.Offset + 1, e.Length - 1);
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var player = db.Players.FirstOrDefault(x => x.UserName == username);
                             if (player == null)
@@ -889,7 +871,7 @@ namespace Werewolf_Control
                         }
                         break;
                     case MessageEntityType.TextMention:
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var player = db.Players.FirstOrDefault(x => x.TelegramId == e.User.Id);
                             if (player == null)
@@ -945,7 +927,7 @@ namespace Werewolf_Control
             {
                 foreach (var uid in toBan)
                 {
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         var player = db.Players.FirstOrDefault(x => x.TelegramId == uid);
                         if (player == null)
@@ -992,7 +974,7 @@ namespace Werewolf_Control
                     case MessageEntityType.Mention:
                         //get user
                         var username = u.Message.Text.Substring(e.Offset + 1, e.Length - 1);
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var player = db.Players.FirstOrDefault(x => x.UserName == username);
                             if (player != null)
@@ -1011,7 +993,7 @@ namespace Werewolf_Control
                         }
                         break;
                     case MessageEntityType.TextMention:
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var player = db.Players.FirstOrDefault(x => x.TelegramId == e.User.Id);
                             if (player != null)
@@ -1037,7 +1019,7 @@ namespace Werewolf_Control
                 {
                     if (!long.TryParse(userid, out long id)) continue;
 
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         var ban = db.GlobalBans.FirstOrDefault(x => x.TelegramId == id);
                         if (ban != null)
@@ -1089,7 +1071,7 @@ namespace Werewolf_Control
         //        Send($"Beginning kick process.  Found {users.Count} users in the group", u.Message.Chat.Id);
         //        var i = 0;
         //        var removed = 0;
-        //        using (var db = new WWContext())
+        //        using (var db = new WWCoreContext())
         //            foreach (var usr in users)
         //            {
         //                var id = usr.id;
@@ -1256,7 +1238,7 @@ namespace Werewolf_Control
             }
 
             Database.Group grp;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
                 grp = GetGroup(args[1], db);
             var grpid = grp?.GroupId ?? (long)0;
             var grpname = grp?.Name ?? "";
@@ -1296,7 +1278,7 @@ namespace Werewolf_Control
                 Bot.Send("Usage: `/preferred <link|username|groupid>`", update.Message.Chat.Id, parseMode: ParseMode.Markdown);
                 return;
             }
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 Database.Group grp = GetGroup(group, db);
                 if (grp == null)
@@ -1348,7 +1330,7 @@ namespace Werewolf_Control
                 if (long.TryParse(args[1], out id))
                 {
                     //get the user from the database
-                    using (var ww = new WWContext())
+                    using (var ww = new WWCoreContext())
                     {
                         var user = ww.Players.FirstOrDefault(x => x.TelegramId == id);
                         if (user != null)
@@ -1431,7 +1413,7 @@ namespace Werewolf_Control
                 if (someFileExists)
                 {
                     var fs = new FileStream(path, FileMode.Open);
-                    Bot.Api.SendDocumentAsync(chatId: u.Message.Chat.Id, document: new InputFile(fs, "errors.zip"), messageThreadId: u.Message.MessageThreadId);
+                    Bot.Api.SendDocumentAsync(chatId: u.Message.Chat.Id, document: new InputFileStream(fs, "errors.zip"), messageThreadId: u.Message.MessageThreadId);
                 }
             }
             catch (Exception e)
@@ -1482,7 +1464,7 @@ namespace Werewolf_Control
             }
             else
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Database.Group grp = GetGroup(link, db);
 
@@ -1568,7 +1550,7 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "user", GlobalAdminOnly = true)]
         public static void User(Update u, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
 
                 var t = u.GetTarget(db);
@@ -1664,3 +1646,4 @@ namespace Werewolf_Control
 
 
 }
+

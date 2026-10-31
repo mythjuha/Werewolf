@@ -79,7 +79,7 @@ namespace Werewolf_Control
         [Command(Trigger = "getstatus")]
         public static void GetStatus(Update u, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 //var msg =
                 //    db.BotStatus.ToList().Where(x => x.BotName != "Bot 2").Select(x => $"[{x.BotName.Replace("Bot 1", "Moderator")}](https://t.me/{x.BotLink}): *{x.BotStatus}* ").ToList()
@@ -113,7 +113,7 @@ namespace Werewolf_Control
         public static void SetLang(Update update, string[] args)
         {
             Player p = null;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 p = db.Players.FirstOrDefault(x => x.TelegramId == update.Message.From.Id);
 
@@ -189,7 +189,7 @@ namespace Werewolf_Control
         {
             if (u.Message.Chat.Type == ChatType.Private && u.Message.From != null)
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var p = GetDBPlayer(u.Message.From.Id, db);
                     if (p == null)
@@ -391,7 +391,7 @@ namespace Werewolf_Control
         public static void NextGame(Update update, string[] args)
         {
             var id = update.Message.Chat.Id;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == id);
                 if (grp == null)
@@ -423,7 +423,7 @@ namespace Werewolf_Control
                 }
                 else
                 {
-                    db.Database.ExecuteSqlCommand(
+                    db.ExecuteSql(
                         $"INSERT INTO NotifyGame VALUES ({update.Message.From.Id}, {id})");
                     db.SaveChanges();
                     Send(GetLocaleString("AddedToWaitList", grp.Language, grp.Name.ToBold()),
@@ -572,7 +572,7 @@ namespace Werewolf_Control
             var idles = 0;
             var groupidles = 0;
             
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 idles = db.GetIdleKills24Hours(update.Message.From.Id).FirstOrDefault() ?? 0;
                 if (isgroup)
@@ -598,3 +598,4 @@ namespace Werewolf_Control
         }
     }
 }
+

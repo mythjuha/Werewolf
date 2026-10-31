@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 
 namespace Updater
 {
@@ -16,18 +17,17 @@ namespace Updater
         {
             get
             {
-                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
-                UriBuilder uri = new UriBuilder(codeBase);
-                string path = Uri.UnescapeDataString(uri.Path);
-                return Path.GetDirectoryName(path);
+                return AppContext.BaseDirectory;
             }
         }
         static void Main(string[] args)
         {
+            var builder = Host.CreateApplicationBuilder(args);
+            using var host = builder.Build();
+            host.Start();
+
             try
             {
-                System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
-
                 var id = "";
                 if (args.Length > 0)
                     id = args[0];

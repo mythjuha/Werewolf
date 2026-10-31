@@ -19,7 +19,7 @@ namespace Werewolf_Control.Helpers
         //    if (_lastGet < DateTime.UtcNow.AddMinutes(-20))
         //    {
         //        //only refresh the list cache once every 20 minutes
-        //        using (var db = new WWContext())
+        //        using (var db = new WWCoreContext())
         //            _list = db.v_PublicGroups.ToList();
         //        _lastGet = DateTime.UtcNow;
         //    }
@@ -67,7 +67,7 @@ namespace Werewolf_Control.Helpers
             if (_lastGetAll < DateTime.UtcNow.AddMinutes(-20) || _list == null)
             {
                 //only refresh the list cache once every 20 minutes
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var lastUpdate = db.v_GroupRanking.Max(x => x.LastRefresh);
                     try
@@ -140,3 +140,4 @@ namespace Werewolf_Control.Helpers
 
     }
 }
+

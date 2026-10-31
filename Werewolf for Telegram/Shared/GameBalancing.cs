@@ -11,7 +11,7 @@ namespace Shared
     {
         static void Shuffle<T>(IList<T> list)
         {
-            using (RNGCryptoServiceProvider provider = new RNGCryptoServiceProvider())
+            using (RandomNumberGenerator provider = RandomNumberGenerator.Create())
             {
                 int n = list.Count;
                 while (n > 1)

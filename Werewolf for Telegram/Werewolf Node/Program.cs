@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
@@ -9,16 +9,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Xml.Linq;
+using Database;
 using Microsoft.Win32;
-using Newtonsoft.Json;
+using Microsoft.Extensions.Hosting;
+using System.Text.Json;
 using TcpFramework;
 using Telegram.Bot;
+using Telegram.Bot.Requests;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using Werewolf_Node.Helpers;
 using Werewolf_Node.Models;
 using Message = TcpFramework.Message;
+using Microsoft.Extensions.Configuration;
 
 namespace Werewolf_Node
 {
@@ -58,7 +62,16 @@ namespace Werewolf_Node
         internal static int MessagesSent = 0;
         static void Main(string[] args)
         {
-            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+            var builder = Host.CreateApplicationBuilder(args);
+            var connectionString = builder.Configuration.GetConnectionString("BotConnectionString");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("ConnectionStrings:BotConnectionString is required.");
+            }
+
+            WWCoreContext.Configure(connectionString);
+            using var host = builder.Build();
+            host.Start();
 
             //set up exception logging.  It appears nodes are crashing and I'm not getting any output
             AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
@@ -109,7 +122,7 @@ namespace Werewolf_Node
             while (!ClientId.All(x => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".Contains(x)));
             new Thread(KeepAlive).Start();
             Console.Title = $"{ClientId} - {Version.FileVersion}";
-            Thread.Sleep(-1);
+            host.WaitForShutdown();
         }
 
         private static ValueTask Bot_OnMakingApiRequest(ITelegramBotClient botClient, Telegram.Bot.Args.ApiRequestEventArgs args, CancellationToken cancellationToken = default(CancellationToken))
@@ -174,8 +187,10 @@ namespace Werewolf_Node
                     string t = null;
                     try
                     {
-                        dynamic m = JsonConvert.DeserializeObject(msg);
-                        t = m.JType?.ToString();
+                        using var document = JsonDocument.Parse(msg);
+                        t = document.RootElement.TryGetProperty("JType", out var typeProperty)
+                            ? typeProperty.GetString()
+                            : null;
                     }
                     catch (Exception)
                     {
@@ -189,12 +204,12 @@ namespace Werewolf_Node
                         switch (t)
                         {
                             case "PlayerJoinInfo":
-                                var pji = JsonConvert.DeserializeObject<PlayerJoinInfo>(msg);
+                                var pji = JsonSerializer.Deserialize<PlayerJoinInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.Guid == pji.GameId);
                                 game?.AddPlayer(pji.User);
                                 break;
                             case "GameStartInfo":
-                                var gsi = JsonConvert.DeserializeObject<GameStartInfo>(msg);
+                                var gsi = JsonSerializer.Deserialize<GameStartInfo>(msg);
                                 try
                                 {
                                     //double check we don't already have a game...
@@ -217,19 +232,19 @@ namespace Werewolf_Node
                                 }
                                 break;
                             case "ForceStartInfo":
-                                var fsi = JsonConvert.DeserializeObject<ForceStartInfo>(msg);
+                                var fsi = JsonSerializer.Deserialize<ForceStartInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == fsi.GroupId);
                                 game?.ForceStart();
                                 break;
                             //case "ReplyInfo":
-                            //    var ri = JsonConvert.DeserializeObject<ReplyInfo>(msg);
+                            //    var ri = JsonSerializer.Deserialize<ReplyInfo>(msg);
                             //    game =
                             //        Games.FirstOrDefault(
                             //            x => x.Players.Any(p => p.TeleUser.Id == ri.Update.Message.From.Id && !p.IsDead));
                             //    game?.HandleReply(ri.Update);
                             //    break;
                             case "CallbackInfo":
-                                var ci = JsonConvert.DeserializeObject<CallbackInfo>(msg);
+                                var ci = JsonSerializer.Deserialize<CallbackInfo>(msg);
                                 game =
                                     Games.FirstOrDefault(
                                         x => //x.Players?.Any(p => p != null && !p.IsDead && p.TeleUser.Id == ci.Query.From.Id) ?? false);
@@ -237,27 +252,27 @@ namespace Werewolf_Node
                                 game?.HandleReply(ci.Query);
                                 break;
                             case "PlayerListRequestInfo":
-                                var plri = JsonConvert.DeserializeObject<PlayerListRequestInfo>(msg);
+                                var plri = JsonSerializer.Deserialize<PlayerListRequestInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == plri.GroupId);
                                 game?.OutputPlayers();
                                 break;
                             case "PlayerFleeInfo":
-                                var pfi = JsonConvert.DeserializeObject<PlayerFleeInfo>(msg);
+                                var pfi = JsonSerializer.Deserialize<PlayerFleeInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == pfi.GroupId);
                                 game?.RemovePlayer(pfi.User);
                                 break;
                             case "LoadLangInfo":
-                                var lli = JsonConvert.DeserializeObject<LoadLangInfo>(msg);
+                                var lli = JsonSerializer.Deserialize<LoadLangInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == lli.GroupId);
                                 game?.LoadLanguage(lli.FileName);
                                 break;
                             case "PlayerSmiteInfo":
-                                var psi = JsonConvert.DeserializeObject<PlayerSmiteInfo>(msg);
+                                var psi = JsonSerializer.Deserialize<PlayerSmiteInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == psi.GroupId);
                                 game?.FleePlayer(psi.UserId);
                                 break;
                             case "UpdateNodeInfo":
-                                var uni = JsonConvert.DeserializeObject<UpdateNodeInfo>(msg);
+                                var uni = JsonSerializer.Deserialize<UpdateNodeInfo>(msg);
                                 IsShuttingDown = true;
                                 if (uni.Kill)
                                 {
@@ -266,17 +281,17 @@ namespace Werewolf_Node
                                 }
                                 break;
                             case "SkipVoteInfo":
-                                var svi = JsonConvert.DeserializeObject<SkipVoteInfo>(msg);
+                                var svi = JsonSerializer.Deserialize<SkipVoteInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == svi.GroupId);
                                 game?.SkipVote();
                                 break;
                             case "GameKillInfo":
-                                var gki = JsonConvert.DeserializeObject<GameKillInfo>(msg);
+                                var gki = JsonSerializer.Deserialize<GameKillInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == gki.GroupId);
                                 game?.Kill();
                                 break;
                             case "GetGameInfo":
-                                var ggi = JsonConvert.DeserializeObject<GetGameInfo>(msg);
+                                var ggi = JsonSerializer.Deserialize<GetGameInfo>(msg);
                                 var g = Games.FirstOrDefault(x => x.ChatId == ggi.GroupId);
                                 if (g == null)
                                     message.Reply("null");
@@ -307,15 +322,15 @@ namespace Werewolf_Node
                                         x.Id
                                     })
                                 };
-                                message.Reply(JsonConvert.SerializeObject(gi));
+                                message.Reply(JsonSerializer.Serialize(gi));
                                 break;
                             case "ExtendTimeInfo":
-                                var eti = JsonConvert.DeserializeObject<ExtendTimeInfo>(msg);
+                                var eti = JsonSerializer.Deserialize<ExtendTimeInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == eti.GroupId);
                                 game?.ExtendTime(eti.User, eti.Admin, eti.Seconds);
                                 break;
                             case "JoinButtonRequestInfo":
-                                var jbri = JsonConvert.DeserializeObject<JoinButtonRequestInfo>(msg);
+                                var jbri = JsonSerializer.Deserialize<JoinButtonRequestInfo>(msg);
                                 game = Games.FirstOrDefault(x => x.ChatId == jbri.GroupId);
                                 game?.ShowJoinButton();
                                 Console.ForegroundColor = ConsoleColor.Green;
@@ -323,7 +338,7 @@ namespace Werewolf_Node
                                 Console.ForegroundColor = ConsoleColor.Gray;
                                 break;
                             case "ReloadLangInfo":
-                                var rli = JsonConvert.DeserializeObject<ReloadLangInfo>(msg);
+                                var rli = JsonSerializer.Deserialize<ReloadLangInfo>(msg);
                                 ReloadLang(rli.LangName);
                                 Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.WriteLine("Reloaded language file: " + rli.LangName);
@@ -414,10 +429,7 @@ namespace Werewolf_Node
         {
             get
             {
-                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
-                UriBuilder uri = new UriBuilder(codeBase);
-                string path = Uri.UnescapeDataString(uri.Path);
-                return Path.GetDirectoryName(path);
+                return AppContext.BaseDirectory;
             }
         }
 
@@ -433,7 +445,7 @@ namespace Werewolf_Node
                 {
                     Client.Connect(Settings.ServerIP, Settings.Port);
                     var regInfo = new ClientRegistrationInfo { ClientId = ClientId };
-                    var json = JsonConvert.SerializeObject(regInfo);
+                    var json = JsonSerializer.Serialize(regInfo);
                     Client.WriteLine(json);
                 }
                 catch (Exception ex)
@@ -520,7 +532,7 @@ namespace Werewolf_Node
                         info.Games.Add(gi);
                     }
 
-                    var json = JsonConvert.SerializeObject(info);
+                    var json = JsonSerializer.Serialize(info);
                     infoGathered = true;
                     Client.WriteLine(json);
                 }

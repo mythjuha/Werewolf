@@ -95,7 +95,7 @@ namespace Werewolf_Control.Helpers
                 var baseFiles = new[]
                 {
                     "Database.dll", "Database.pdb", "TcpFramework.dll", "TcpFramework.pdb", "Telegram.Bot.dll",
-                    "Telegram.Bot.xml", "Shared.dll", "Shared.pdb", "Newtonsoft.Json.dll", "Newtonsoft.Json.xml"
+                    "Telegram.Bot.xml", "Shared.dll", "Shared.pdb"
                 };
                 //control has different names for each bot
                 //node we will just copy the entire folder
@@ -192,7 +192,7 @@ namespace Werewolf_Control.Helpers
             try
             {
                 var url = "https://greywolfdev.visualstudio.com/DefaultCollection/";
-                var build = new BuildHttpClient(new Uri(url), new VssCredentials(new VssBasicCredential("", RegHelper.GetRegValue("VSTSToken"))));
+                var build = new BuildHttpClient(new Uri(url), new VssCredentials(new VssBasicCredential("", Program.Configuration["VSTSToken"])));
 
                 // First we get project's GUID and buildDefinition's ID.
                 // Get the list of build definitions.
@@ -287,7 +287,7 @@ namespace Werewolf_Control.Helpers
                         //Bot.Api.StopReceiving();
                         //Thread.Sleep(500);
 #pragma warning disable CS0219 // Variable is assigned but its value is never used
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var bot =
 
@@ -335,3 +335,4 @@ namespace Werewolf_Control.Helpers
         public string ControlExeName { get; set; }
     }
 }
+

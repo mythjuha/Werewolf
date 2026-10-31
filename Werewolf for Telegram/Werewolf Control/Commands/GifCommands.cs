@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -6,8 +6,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Database;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -15,7 +15,6 @@ using Telegram.Bot.Types.Payments;
 using Telegram.Bot.Types.ReplyMarkups;
 using Werewolf_Control.Helpers;
 using Werewolf_Control.Models;
-using RegHelper = Werewolf_Control.Helpers.RegHelper;
 
 #pragma warning disable IDE0060 // Remove unused parameter
 
@@ -88,7 +87,7 @@ namespace Werewolf_Control
             return;
 #endif
             //check player has access!
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == u.Message.From.Id);
                 var json = p?.CustomGifSet;
@@ -106,11 +105,11 @@ namespace Werewolf_Control
                         HasPurchased = true
                     };
                     p.GifPurchased = true;
-                    p.CustomGifSet = JsonConvert.SerializeObject(data);
+                    p.CustomGifSet = JsonSerializer.Serialize(data);
                     db.SaveChanges();
                 }
 
-                else { data = JsonConvert.DeserializeObject<CustomGifData>(json ?? ""); }
+                else { data = JsonSerializer.Deserialize<CustomGifData>(json ?? ""); }
                 //if (!data.HasPurchased)
                 //{
                 //    Bot.Send("You have not unlocked a custom GIF pack.  Please use /donate", u.Message.From.Id);
@@ -229,7 +228,7 @@ namespace Werewolf_Control
             var choice = q.Data.Split('|')[1].Split(' ')[0];
             if (choice == "submit")
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var p = db.Players.FirstOrDefault(x => x.TelegramId == q.From.Id);
                     if (p != null)
@@ -240,7 +239,7 @@ namespace Werewolf_Control
                             Bot.Send("You have not unlocked a custom GIF pack.  Please use /donate", q.From.Id);
                             return;
                         }
-                        var data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                        var data = JsonSerializer.Deserialize<CustomGifData>(json);
                         if (data.Approved != null)
                         {
                             Bot.Send($"Your current GIF pack has already been {(data.Approved == true ? "" : "dis")}approved! You can't submit it again without any changes!", q.From.Id, customMenu: GetGifMenu(data));
@@ -258,7 +257,7 @@ namespace Werewolf_Control
                         }
                         data.Submitted = true;
                         data.LastSubmit = DateTime.UtcNow;
-                        p.CustomGifSet = JsonConvert.SerializeObject(data);
+                        p.CustomGifSet = JsonSerializer.Serialize(data);
                         db.SaveChanges();
                     }
                 }
@@ -273,7 +272,7 @@ namespace Werewolf_Control
             }
             if (choice == "togglebadge")
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var p = db.Players.FirstOrDefault(x => x.TelegramId == q.From.Id);
                     if ((p.DonationLevel ?? 0) < 10)
@@ -282,9 +281,9 @@ namespace Werewolf_Control
                         return;
                     }
                     var json = p?.CustomGifSet;
-                    var data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                    var data = JsonSerializer.Deserialize<CustomGifData>(json);
                     data.ShowBadge = !data.ShowBadge;
-                    p.CustomGifSet = JsonConvert.SerializeObject(data);
+                    p.CustomGifSet = JsonSerializer.Serialize(data);
                     db.SaveChanges();
                     Bot.Send($"Your badge will {(data.ShowBadge ? "" : "not ")}be shown.", q.From.Id, customMenu: GetGifMenu(data));
                     return;
@@ -300,14 +299,14 @@ namespace Werewolf_Control
             }
             if (choice == "confirmreset")
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var p = db.Players.FirstOrDefault(x => x.TelegramId == q.From.Id);
                     var data = new CustomGifData
                     {
                         HasPurchased = true
                     };
-                    p.CustomGifSet = JsonConvert.SerializeObject(data);
+                    p.CustomGifSet = JsonSerializer.Serialize(data);
                     db.SaveChanges();
                     Bot.Send("Your custom GIFs have successfully been reset.", q.From.Id, customMenu: GetGifMenu(data));
                     return;
@@ -315,11 +314,11 @@ namespace Werewolf_Control
             }
             if (choice == "cancelreset")
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var p = db.Players.FirstOrDefault(x => x.TelegramId == q.From.Id);
                     var json = p?.CustomGifSet;
-                    var data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                    var data = JsonSerializer.Deserialize<CustomGifData>(json);
                     Bot.Send($"You cancelled resetting your GIFs.", q.From.Id, customMenu: GetGifMenu(data));
                     return;
                 }
@@ -332,7 +331,7 @@ namespace Werewolf_Control
 
         public static void AddGif(Message m)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == m.From.Id);
                 var json = p?.CustomGifSet;
@@ -342,7 +341,7 @@ namespace Werewolf_Control
                     Bot.Send("You have not unlocked a custom GIF pack.  Please use /donate", m.From.Id);
                     return;
                 }
-                var data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                var data = JsonSerializer.Deserialize<CustomGifData>(json);
                 if (!data.HasPurchased)
                 {
                     Bot.Send("You have not unlocked a custom GIF pack.  Please use /donate", m.From.Id);
@@ -419,7 +418,7 @@ namespace Werewolf_Control
                 }
                 data.Approved = null;
                 data.ApprovedBy = 0;
-                p.CustomGifSet = JsonConvert.SerializeObject(data);
+                p.CustomGifSet = JsonSerializer.Serialize(data);
                 db.SaveChanges();
                 Bot.Send("Got it! Any more?", m.From.Id, customMenu: GetGifMenu(data));
             }
@@ -433,15 +432,11 @@ namespace Werewolf_Control
             data.Settings.Currency = "USD";
             data.Settings.ProjectId = Program.xsollaProjId.Value;
             data.Settings.Ui.Theme = "dark";
-            var res = JsonConvert.SerializeObject(data, 
-                new JsonSerializerSettings
-                {
-                    ContractResolver = new DefaultContractResolver
-                    {
-                        NamingStrategy = new SnakeCaseNamingStrategy()
-                    },
-                    NullValueHandling = NullValueHandling.Ignore
-                });
+            var res = JsonSerializer.Serialize(data, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
             return res;
         }
 
@@ -463,7 +458,7 @@ namespace Werewolf_Control
             try
             {
                 var res = Program.xsollaClient.PostAsync(Program.XsollaLink, new StringContent(CreateXsollaJson(from), Encoding.UTF8, "application/json")).Result;
-                var token = JsonConvert.DeserializeObject<Dictionary<string, string>>(res.Content.ReadAsStringAsync().Result)["token"];
+                var token = JsonSerializer.Deserialize<Dictionary<string, string>>(res.Content.ReadAsStringAsync().Result)["token"];
                 txt = $"Please click the button below to donate via Xsolla.\nPlease note that this link is ONLY for you and valid for 24 hours.";
                 markup = new InlineKeyboardMarkup(new InlineKeyboardButton[][] { new InlineKeyboardButton[] { InlineKeyboardButton.WithUrl("Donate Now!", $"https://tgwerewolf.com/donate/xsolla?uid={from.Id}&token={token}") } });
             }
@@ -513,11 +508,11 @@ namespace Werewolf_Control
             if (int.TryParse(input, out amt))
             {
 #if DEBUG
-                var api = RegHelper.GetRegValue("DebugStripeTestAPI");
+                var api = Program.Configuration["DebugStripeTestAPI"];
 #elif BETA
-                var api = RegHelper.GetRegValue("BetaStripeProdAPI");
+                var api = Program.Configuration["BetaStripeProdAPI"];
 #elif RELEASE
-                var api = RegHelper.GetRegValue("MainStripeProdAPI");
+                var api = Program.Configuration["MainStripeProdAPI"];
 #endif
                 Bot.Api.SendInvoiceAsync(chatId: m.From.Id, title: "Werewolf Donation", description: "Make a donation to Werewolf to help keep us online", payload: "somepayloadtest", providerToken: api,
                     currency: "USD", prices: new[] { new LabeledPrice("Donation", amt * 100) }, startParameter: "donatetg").Wait();
@@ -539,11 +534,11 @@ namespace Werewolf_Control
             if (int.TryParse(input, out amt))
             {
 #if DEBUG
-                var api = RegHelper.GetRegValue("DebugStripeTestAPI");
+                var api = Program.Configuration["DebugStripeTestAPI"];
 #elif BETA
-                var api = RegHelper.GetRegValue("BetaStripeProdAPI");
+                var api = Program.Configuration["BetaStripeProdAPI"];
 #elif RELEASE
-                var api = RegHelper.GetRegValue("MainStripeProdAPI");
+                var api = Program.Configuration["MainStripeProdAPI"];
 #endif
                 Bot.Api.SendInvoiceAsync(chatId: m.From.Id, title: "Werewolf Donation", description: "Make a donation to Werewolf to help keep us online", payload: "somepayloadtest", providerToken: "",
                     currency: "XTR", prices: new[] { new LabeledPrice("Donation", amt) }, startParameter: "donatetgnew").Wait();
@@ -559,3 +554,4 @@ namespace Werewolf_Control
         }
     }
 }
+

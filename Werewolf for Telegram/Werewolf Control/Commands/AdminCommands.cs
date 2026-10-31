@@ -1,5 +1,5 @@
 using Database;
-using Newtonsoft.Json;
+using System.Text.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ namespace Werewolf_Control
                     case MessageEntityType.Mention:
                         //get user
                         var username = u.Message.Text.Substring(e.Offset + 1, e.Length - 1);
-                        using (var db = new WWContext())
+                        using (var db = new WWCoreContext())
                         {
                             var id = db.Players.FirstOrDefault(x => x.UserName == username)?.TelegramId ?? 0;
                             if (id != 0)
@@ -69,7 +69,7 @@ namespace Werewolf_Control
             var id = update.Message.Chat.Id;
 
             //make sure the group is in the database
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == id);
                 if (grp == null)
@@ -131,7 +131,7 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "getban", GlobalAdminOnly = true)]
         public static void GetUserStatus(Update u, string[] a)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = u.GetTarget(db);
                 var ban = db.GlobalBans.FirstOrDefault(x => x.TelegramId == p.TelegramId);
@@ -243,7 +243,7 @@ namespace Werewolf_Control
             var reply = "";
             var language = GetLanguage(update.Message.Chat.Id);
             //now get the idle kills
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 foreach (var id in ids)
                 {
@@ -273,7 +273,7 @@ namespace Werewolf_Control
         [Attributes.Command(Trigger = "remlink", GroupAdminOnly = true, InGroupOnly = true, AllowAnonymousAdmins = true)]
         public static void RemLink(Update u, string[] args)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == u.Message.Chat.Id) ??
                           MakeDefaultGroup(u.Message.Chat.Id, u.Message.Chat.Title, "setlink");
@@ -310,7 +310,7 @@ namespace Werewolf_Control
                 Send("This is an invalid telegram join link.", update.Message.Chat.Id);
                 return;
             }
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == update.Message.Chat.Id) ??
                           MakeDefaultGroup(update.Message.Chat.Id, update.Message.Chat.Title, "setlink");
@@ -352,7 +352,7 @@ namespace Werewolf_Control
                         case MessageEntityType.Mention:
                             //get user
                             var username = u.Message.Text.Substring(e.Offset + 1, e.Length - 1);
-                            using (var db = new WWContext())
+                            using (var db = new WWCoreContext())
                             {
                                 id = db.Players.FirstOrDefault(x => x.UserName == username)?.TelegramId ?? 0;
                             }
@@ -382,7 +382,7 @@ namespace Werewolf_Control
                 if (Enum.TryParse(param[achIndex], out AchievementsReworked a))
                 {
                     //get the player from database
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         var p = db.Players.FirstOrDefault(x => x.TelegramId == id);
                         if (p != null)
@@ -438,7 +438,7 @@ namespace Werewolf_Control
                         case MessageEntityType.Mention:
                             //get user
                             var username = u.Message.Text.Substring(e.Offset + 1, e.Length - 1);
-                            using (var db = new WWContext())
+                            using (var db = new WWCoreContext())
                             {
                                 id = db.Players.FirstOrDefault(x => x.UserName == username)?.TelegramId ?? 0;
                             }
@@ -468,7 +468,7 @@ namespace Werewolf_Control
                 if (Enum.TryParse(param[achIndex], out AchievementsReworked a))
                 {
                     //get the player from database
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         var p = db.Players.FirstOrDefault(x => x.TelegramId == id);
                         if (p != null)
@@ -508,7 +508,7 @@ namespace Werewolf_Control
                 return;
             }
 
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var oldP = db.Players.FirstOrDefault(x => x.TelegramId == oldid);
                 var newP = db.Players.FirstOrDefault(x => x.TelegramId == newid);
@@ -584,7 +584,7 @@ namespace Werewolf_Control
         public static void ReviewGifs(Update u, string[] args)
         {
 #if !BETA
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 if (args[1] == null)
                 {
@@ -593,7 +593,7 @@ namespace Werewolf_Control
                     var list = "<b>Pending Review:</b>\n";
                     foreach (var p in packs)
                     {
-                        var pack = JsonConvert.DeserializeObject<CustomGifData>(p.CustomGifSet);
+                        var pack = JsonSerializer.Deserialize<CustomGifData>(p.CustomGifSet);
                         if (pack.Approved != null || !pack.Submitted) continue;
                         count++;
                         list += "<code>" + p.TelegramId + "</code>" + Environment.NewLine;
@@ -622,7 +622,7 @@ namespace Werewolf_Control
                     if (u.Message.Chat.Type != ChatType.Private)
                         Send("I will send you the gifs in private", u.Message.Chat.Id);
 
-                    var pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                    var pack = JsonSerializer.Deserialize<CustomGifData>(json);
                     var id = u.Message.From.Id;
                     Send($"Sending gifs for {pid}", id);
                     Thread.Sleep(1000);
@@ -737,7 +737,7 @@ namespace Werewolf_Control
         public static void ApproveGifs(Update u, string[] args)
         {
 #if !BETA
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 if (args[1] == null)
                 {
@@ -768,7 +768,7 @@ namespace Werewolf_Control
                         return;
                     }
 
-                    var pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                    var pack = JsonSerializer.Deserialize<CustomGifData>(json);
                     // save gifs for external access
                     new Task(() => Task.WhenAll(DownloadGifFromJson(pack, u))).Start();
                     // end
@@ -780,7 +780,7 @@ namespace Werewolf_Control
                     var msg = $"Approval Status: ";
                     var by = db.Players.FirstOrDefault(x => x.TelegramId == pack.ApprovedBy);
                     msg += "Approved By " + by.Name + "\nNSFW: " + pack.NSFW;
-                    p.CustomGifSet = JsonConvert.SerializeObject(pack);
+                    p.CustomGifSet = JsonSerializer.Serialize(pack);
                     db.SaveChanges();
                     Bot.Send(msg, pid);
                     Bot.Send(msg, u.Message.Chat.Id);
@@ -793,7 +793,7 @@ namespace Werewolf_Control
         public static void DisapproveGifs(Update u, string[] args)
         {
 #if !BETA
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 if (args[1] == null)
                 {
@@ -824,7 +824,7 @@ namespace Werewolf_Control
                         return;
                     }
 
-                    var pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                    var pack = JsonSerializer.Deserialize<CustomGifData>(json);
                     var id = u.Message.From.Id;
                     pack.Approved = false;
                     pack.ApprovedBy = id;
@@ -833,7 +833,7 @@ namespace Werewolf_Control
                     var msg = $"Approval Status: ";
                     var by = db.Players.FirstOrDefault(x => x.TelegramId == pack.ApprovedBy);
                     msg += "Dispproved By " + by.Name + " for: " + pack.DenyReason;
-                    p.CustomGifSet = JsonConvert.SerializeObject(pack);
+                    p.CustomGifSet = JsonSerializer.Serialize(pack);
                     db.SaveChanges();
                     Bot.Send(msg, pid);
                     Bot.Send(msg, u.Message.Chat.Id);
@@ -888,7 +888,7 @@ namespace Werewolf_Control
 
             if (UserIds.Any())
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     foreach (long userid in UserIds)
                     {
@@ -896,7 +896,7 @@ namespace Werewolf_Control
                         if (p != null && p.CustomGifSet != null)
                         {
                             var json = p.CustomGifSet;
-                            var pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                            var pack = JsonSerializer.Deserialize<CustomGifData>(json);
 
                             if (pack.ArsonistWins != null) FileIds.Add(pack.ArsonistWins);
                             if (pack.BurnToDeath != null) FileIds.Add(pack.BurnToDeath);
@@ -948,3 +948,4 @@ namespace Werewolf_Control
         }
     }
 }
+

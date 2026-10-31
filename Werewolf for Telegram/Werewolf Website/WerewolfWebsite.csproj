@@ -28,6 +28,7 @@
     <ApplicationInsightsResourceId>/subscriptions/71ee4800-f451-4cdd-933e-404a3db4e8fe/resourcegroups/Default-ApplicationInsights-CentralUS/providers/microsoft.insights/components/Werewolf Website</ApplicationInsightsResourceId>
     <TargetFrameworkProfile />
     <Use64BitIISExpress />
+    <_MigrateToProjectGuid>bcf21bc7-f806-c873-16a4-1725264b717c</_MigrateToProjectGuid>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

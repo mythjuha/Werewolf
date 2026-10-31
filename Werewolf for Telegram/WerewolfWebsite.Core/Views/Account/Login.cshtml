@@ -1,0 +1,12 @@
+@model WerewolfWebsite.Core.Models.LoginViewModel
+@{ ViewData["Title"] = "Log in"; }
+<h2>Log in</h2>
+<form asp-action="Login" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input asp-for="ReturnUrl" type="hidden" />
+    <div><label asp-for="Email"></label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
+    <div><label asp-for="Password"></label><input asp-for="Password" /><span asp-validation-for="Password"></span></div>
+    <div><input asp-for="RememberMe" /><label asp-for="RememberMe"></label></div>
+    <button type="submit">Log in</button>
+</form>
+<a asp-action="Register">Register as a new user</a>

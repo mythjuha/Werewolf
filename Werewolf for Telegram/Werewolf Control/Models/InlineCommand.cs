@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Database;
 using Telegram.Bot.Types;
 using Werewolf_Control.Helpers;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace Werewolf_Control.Models
 {
@@ -37,7 +37,7 @@ namespace Werewolf_Control.Models
             Command = "stats";
             try
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Content = "";
                     //find the player
@@ -82,7 +82,7 @@ namespace Werewolf_Control.Models
                     var json = p.CustomGifSet;
                     if (!String.IsNullOrEmpty(json))
                     {
-                        var data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                        var data = JsonSerializer.Deserialize<CustomGifData>(json);
                         if (data.ShowBadge)
                         {
                             if ((p.DonationLevel ?? 0) >= 100)
@@ -125,7 +125,7 @@ namespace Werewolf_Control.Models
             Command = "kills";
             try
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Content = "";
                     //find the player
@@ -162,7 +162,7 @@ namespace Werewolf_Control.Models
             Command = "killedby";
             try
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Content = "";
                     //find the player
@@ -200,7 +200,7 @@ namespace Werewolf_Control.Models
             Command = "roles";
             try
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Content = "";
                     //find the player
@@ -240,7 +240,7 @@ namespace Werewolf_Control.Models
             Command = "deaths";
             try
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Content = "";
                     //find the player
@@ -284,3 +284,4 @@ namespace Werewolf_Control.Models
     }
 
 }
+

@@ -5,14 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using System.Runtime.Caching;
+using Microsoft.Extensions.Caching.Memory;
 using Telegram.Bot;
 
 namespace Werewolf_Control.Helpers
 {
     internal static class UpdateHelper
     {
-        public static readonly MemoryCache AdminCache = new MemoryCache("GroupAdmins");
+        private static readonly IMemoryCache AdminCache = new MemoryCache(new MemoryCacheOptions());
 
         internal static long[] Devs =
         {
@@ -37,7 +37,7 @@ namespace Werewolf_Control.Helpers
 
         internal static bool IsGlobalAdmin(long id)
         {
-            using (var db = new Database.WWContext())
+            using (var db = new Database.WWCoreContext())
             {
                 return db.Admins.Any(x => x.UserId == id);
             }
@@ -51,17 +51,18 @@ namespace Werewolf_Control.Helpers
         internal static bool IsGroupAdmin(long user, long group)
         {
             string itemIndex = $"{group}";
-            if (!(AdminCache[itemIndex] is List<long> admins))
+            if (!AdminCache.TryGetValue(itemIndex, out List<long> admins))
             {
-                CacheItemPolicy policy = new CacheItemPolicy() { AbsoluteExpiration = DateTime.Now.AddHours(1) };
-
                 //fire off admin request
                 try
                 {
                     //check all admins
                     var t = Bot.Api.GetChatAdministratorsAsync(chatId: group).Result;
                     admins = t.Where(x => !string.IsNullOrEmpty(x.User.FirstName)).Select(x => x.User.Id).ToList(); // if their first name is empty, the account is deleted
-                    AdminCache.Set(itemIndex, admins, policy); // Write admin list into cache
+                    AdminCache.Set(itemIndex, admins, new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+                    }); // Write admin list into cache
                 }
                 catch
                 {
@@ -74,3 +75,4 @@ namespace Werewolf_Control.Helpers
         }
     }
 }
+

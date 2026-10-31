@@ -1,5 +1,5 @@
-﻿using Database;
-using Newtonsoft.Json;
+using Database;
+using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -184,10 +185,8 @@ namespace Werewolf_Control.Helpers
             //var fileName = file.FilePath.Substring(file.FilePath.LastIndexOf("/") + 1);
             var uri = $"https://api.telegram.org/file/bot{Bot.TelegramAPIKey}/{file.FilePath}";
             var newFilePath = Path.Combine(path.FullName, newFileCorrectName);
-            using (var client = new WebClient())
-            {
-                client.DownloadFile(new Uri(uri), newFilePath);
-            }
+            using var client = new HttpClient();
+            File.WriteAllBytes(newFilePath, client.GetByteArrayAsync(uri).GetAwaiter().GetResult());
 
 
             //ok, we have the file.  Now we need to determine the language, scan it and the original file.
@@ -400,13 +399,13 @@ namespace Werewolf_Control.Helpers
                 Bot.Send("Error while trying to commit to git:\n" + error + "\n\n" + trace, id);
             }
 #endif
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var newFile = new LangFile(copyToPath);
 
                 // search for language file entry and update it or add it if it's not present yet
                 Language language = db.Language.FirstOrDefault(x => x.FileName == newFile.FileName);
-                if (language == null) language = db.Language.Add(new Language { FileName = newFile.FileName });
+                if (language == null) language = db.Language.Add(new Language { FileName = newFile.FileName }).Entity;
                 language.Base = newFile.Base;
                 language.IsDefault = newFile.IsDefault;
                 language.LangCode = newFile.LangCode;
@@ -420,7 +419,7 @@ namespace Werewolf_Control.Helpers
             {
                 LangName = Path.GetFileNameWithoutExtension(copyToPath)
             };
-            var json = JsonConvert.SerializeObject(info);
+            var json = JsonSerializer.Serialize(info);
 
             foreach (var n in Bot.Nodes)
                 n.Broadcast(json);
@@ -449,7 +448,7 @@ namespace Werewolf_Control.Helpers
 
             //now send the file
             var fs = new FileStream(path, FileMode.Open);
-            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFile(fs, "languages.zip"), messageThreadId: messageThreadId);
+            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFileStream(fs, "languages.zip"), messageThreadId: messageThreadId);
         }
 
         public static void SendFile(long id, int? messageThreadId, string choice)
@@ -457,14 +456,14 @@ namespace Werewolf_Control.Helpers
             var langOptions = Directory.GetFiles(Bot.LanguageDirectory, "*.xml").Select(x => new LangFile(x));
             var option = langOptions.First(x => x.Name == choice);
             var fs = new FileStream(option.FilePath, FileMode.Open);
-            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFile(fs, option.FileName + ".xml"), messageThreadId: messageThreadId);
+            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFileStream(fs, option.FileName + ".xml"), messageThreadId: messageThreadId);
         }
 
         public static void SendFileByFilepath(long id, int? messageThreadId, string filepath)
         {
             string filename = Path.GetFileNameWithoutExtension(filepath);
             var fs = new FileStream(filepath, FileMode.Open);
-            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFile(fs, filename + ".xml"), messageThreadId: messageThreadId);
+            Bot.Api.SendDocumentAsync(chatId: id, document: new InputFileStream(fs, filename + ".xml"), messageThreadId: messageThreadId);
         }
 
         internal static void SendBase(string choice, long id, int? messageThreadId)
@@ -488,7 +487,7 @@ namespace Werewolf_Control.Helpers
                 }
                 //now send the zip file
                 var fs = new FileStream(path, FileMode.Open);
-                Bot.Api.SendDocumentAsync(chatId: id, document: new InputFile(fs, $"{zipname}.zip"), messageThreadId: messageThreadId);
+                Bot.Api.SendDocumentAsync(chatId: id, document: new InputFileStream(fs, $"{zipname}.zip"), messageThreadId: messageThreadId);
 
             }
             catch (Exception e)
@@ -691,3 +690,4 @@ namespace Werewolf_Control.Helpers
         Ads
     }
 }
+

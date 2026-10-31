@@ -1,0 +1,44 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<section id="slider" class="fullheight parallax parallax-4"></section>
+<section class="callout-dark heading-title heading-arrow-bottom" style="z-index:100;">
+    <div class="container">
+        <div class="text-center">
+            <h3 class="size-30">One small village. Treachery, Deception, Murder.</h3>
+            <p>Can you find the werewolves before it's too late?</p>
+        </div>
+    </div>
+</section>
+<section id="features">
+    <div class="container">
+        <header class="text-center margin-bottom-60">
+            <h2>Our Features</h2>
+            <p class="lead font-lato">What to expect</p>
+            <hr />
+        </header>
+        <div class="row">
+            <div class="col-md-3 col-xs-6"><div class="text-center"><i class="ico-light ico-lg ico-rounded ico-hover fa fa-users"></i><h4>Active Community</h4><p>15.000 daily active users</p></div></div>
+            <div class="col-md-3 col-xs-6"><div class="text-center"><i class="ico-light ico-lg ico-rounded ico-hover et-chat"></i><h4>Dedicated Support Team</h4><p>A team of well trained werewolves is available 24/7 to <a href="https://t.me/greywolfsupport">help you out</a>.</p></div></div>
+            <div class="col-md-3 col-xs-6"><div class="text-center"><i class="ico-light ico-lg ico-rounded ico-hover fa fa-github"></i><h4>Open Source</h4><p>All source code is available on <a href="https://github.com/GreyWolfDev/Werewolf">GitHub</a>.</p></div></div>
+            <div class="col-md-3 col-xs-6"><div class="text-center"><i class="ico-light ico-lg ico-rounded ico-hover et-trophy"></i><h4>Achievements</h4><p>Earn achievements while playing Werewolf.</p></div></div>
+        </div>
+    </div>
+</section>
+<section class="alert alert-transparent bordered-bottom nomargin">
+    <div class="container"><div class="row">
+        <div class="col-md-9 col-sm-12"><h3>Add <strong>@@werewolfbot</strong> to your group and start playing!</h3><p class="font-lato weight-300 size-20 nomargin-bottom">It's time to learn who your friends really are.</p></div>
+        <div class="col-md-3 col-sm-12 text-right"><a href="https://t.me/werewolfbot?startgroup" rel="nofollow" class="btn btn-primary btn-lg">ADD NOW</a></div>
+    </div></div>
+</section>
+<section id="howto"><div class="container"><div class="row">
+    <h2>What is Werewolf?</h2>
+    <p>Werewolf is a game of deception. Find out who the other players are and lynch or kill the opposing teams.</p>
+</div></div></section>
+@section Styles {
+    <style>
+        @@media only screen and (min-width: 801px) { #slider { background-image: url('/images/banner.jpg'); } }
+        @@media only screen and (max-width: 800px) { #slider { display: none !important; } }
+    </style>
+}

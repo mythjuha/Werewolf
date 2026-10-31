@@ -1,0 +1,31 @@
+@model DonationSite.Core.Controllers.XsollaDonationViewModel
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card border-primary mb-6 text-center">
+            <div class="card-header">Donation via Xsolla</div>
+            <div class="card-body">
+                <h1 class="card-title">@Model.Name</h1>
+                <h6 class="card-subtitle text-muted">@Model.TelegramId</h6>
+                <p></p>
+                <p class="card-text">Please confirm your <b>Telegram ID</b> and your <b>recent Telegram Name</b> above.</p>
+                <button type="button" class="btn btn-primary" data-xpaystation-widget-open>Donate now!</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const options = {
+        access_token: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AccessToken)),
+        lightbox: { height: "80%" }
+    };
+    const script = document.createElement('script');
+    script.type = "text/javascript";
+    script.async = true;
+    script.src = "//static.xsolla.com/embed/paystation/1.0.7/widget.min.js";
+    script.addEventListener('load', function () {
+        XPayStationWidget.init(options);
+    }, false);
+    document.head.appendChild(script);
+</script>

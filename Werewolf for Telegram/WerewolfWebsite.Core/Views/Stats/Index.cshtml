@@ -1,0 +1,17 @@
+@{
+    ViewData["Title"] = "Werewolf Telegram Stats";
+}
+<section>
+    <div class="box-static box-border-top padding-0">
+        <div class="box-title margin-bottom-30">
+            <h2 class="size-20">Global Stats</h2>
+            <p>(<b>NOTE</b> - <i>you must play at least 100 games to be included</i>)</p>
+        </div>
+        <div id="groupStats" class="table-responsive">Loading...</div>
+    </div>
+</section>
+@section Scripts {
+<script>
+fetch('/Stats/GlobalStats').then(response => response.json()).then(html => document.getElementById('groupStats').innerHTML = html);
+</script>
+}

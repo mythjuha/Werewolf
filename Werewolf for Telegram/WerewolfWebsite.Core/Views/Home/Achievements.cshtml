@@ -1,0 +1,19 @@
+@using Database
+@{
+    ViewData["Title"] = "Achievements";
+}
+<section>
+    <div class="container">
+        <div class="heading-title heading-line-single"><h2>Achievements</h2></div>
+        <div class="divider divider-center mt-0 mb-80"><i class="fa fa-chevron-down"></i></div>
+        @foreach (var achievement in Enum.GetValues<AchievementsReworked>())
+        {
+            if (achievement is not AchievementsReworked.OHAIDER and not AchievementsReworked.None)
+            {
+                <h2 id="@achievement" style="margin-bottom: 5px"><span>@achievement.GetName()</span></h2>
+                <p style="margin-bottom: 0">@achievement.GetDescription()</p>
+                <div class="divider divider-border divider-right" style="margin: 0"><a class="scrollTo" href="#wrapper" data-offset="-110"><i class="fa fa-chevron-up"></i></a></div>
+            }
+        }
+    </div>
+</section>

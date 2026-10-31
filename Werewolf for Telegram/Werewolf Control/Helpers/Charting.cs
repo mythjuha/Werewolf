@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms.DataVisualization.Charting;
 using Database;
+using ScottPlot;
+using Plot = ScottPlot.Plot;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Werewolf_Control.Handler;
@@ -73,137 +73,56 @@ sum(count(x.Gameid)) over (partition by players) as Games
  ORDER BY x.Players, Wins DESC";
 
             var result = new List<TeamWinResult>();
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
-                result = db.Database.SqlQuery<TeamWinResult>(query).ToListAsync().Result;
+                result = db.ExecuteQuery<TeamWinResult>(query);
             }
 
-            //we have our results, now chart it...
-            //build a datatable
-            var dataSet = new DataSet();
-            var dt = new DataTable();
-            dt.Columns.Add("Players", typeof(int));
-            dt.Columns.Add("Wins", typeof(int));
-            dt.Columns.Add("Games", typeof(int));
-            dt.Columns.Add("Team", typeof(string));
-            
-            foreach (var r in result)
-            {
-                var row = dt.NewRow();
-                row[0] = r.Players;
-                row[1] = (int)r.Wins;
-                row[2] = r.Games;
-                row[3] = r.Team;
-                dt.Rows.Add(row);
-            }
+            // ScottPlot is used headlessly because the chart is written to disk for Telegram delivery.
+            var chart = new Plot(1000, 400);
+            chart.Title("Team win percentage by player count");
+            chart.XLabel("Players");
+            chart.YLabel("Wins (%)");
 
-            dataSet.Tables.Add(dt);
-
-            //now build the chart
-            Chart chart = new Chart
-            {
-                Width = 1000,
-                Height = 400
-            };
-            //chart.DataSource = dataSet.Tables[0];
-            var legend = new Legend();
-            //create serie...
             foreach (var team in new[] { "Wolf", "Village", "Tanner", "Cult", "SerialKiller", "Arsonist", "Lovers" })
             {
-                Series serie1 = new Series
-                {
-                    LegendText = team,
-                    Name = team
-                };
-                //serie1.Label = team;
+                Color color;
                 switch (team)
                 {
                     case "Wolf":
-                        serie1.Color = Color.SaddleBrown;
+                        color = Color.SaddleBrown;
                         break;
                     case "Village":
-                        serie1.Color = Color.Green;
+                        color = Color.Green;
                         break;
                     case "Tanner":
-                        serie1.Color = Color.Red;
+                        color = Color.Red;
                         break;
                     case "Cult":
-                        serie1.Color = Color.Blue;
+                        color = Color.Blue;
                         break;
                     case "SerialKiller":
-                        serie1.Color = Color.Black;
+                        color = Color.Black;
                         break;
                     case "Arsonist":
-                        serie1.Color = Color.Orange;
+                        color = Color.Orange;
                         break;
                     case "Lovers":
-                        serie1.Color = Color.Pink;
+                        color = Color.Pink;
+                        break;
+                    default:
+                        color = Color.Gray;
                         break;
                 }
-                serie1.MarkerBorderWidth = 2;
-                serie1.BorderColor = Color.FromArgb(164, 164, 164);
-                serie1.ChartType = SeriesChartType.StackedBar100;
-                serie1.BorderDashStyle = ChartDashStyle.Solid;
-                serie1.BorderWidth = 1;
-                //serie1.ShadowColor = Color.FromArgb(128, 128, 128);
-                //serie1.ShadowOffset = 1;
-                serie1.IsValueShownAsLabel = false;
-                serie1.XValueMember = "Players";
-                serie1.YValueMembers = "Wins";
-                serie1.Font = new Font("Tahoma", 8.0f);
-                serie1.BackSecondaryColor = Color.FromArgb(0, 102, 153);
-                serie1.LabelForeColor = Color.FromArgb(100, 100, 100);
-                //add our values
-                var pl = 4;
-                foreach (var r in result.Where(x => x.Team == team).OrderBy(x => x.Players))
-                {
-                    pl++;
-                    if (r.Players != pl)
-                    {
-                        while (pl < r.Players)
-                        {
-                            serie1.Points.AddXY(pl, 0);
-                            pl++;
-                        }
-                    }
-                    serie1.Points.AddXY(r.Players, r.Wins);
-                }
-                //make sure we filled all the points...
-                var top = (int)(serie1.Points.OrderByDescending(x => x.XValue).FirstOrDefault()?.XValue ?? 4);
-
-                if (top < 35)
-                {
-                    top++;
-                    while (top <= 35)
-                    {
-                        serie1.Points.AddXY(top, 0);
-                        top++;
-                    }
-                }
-                //legend.CustomItems.Add(serie1.Color, team);
-                chart.Series.Add(serie1);
+                var teamResults = result.Where(x => x.Team == team).OrderBy(x => x.Players).ToList();
+                var players = teamResults.Select(x => (double)x.Players).ToArray();
+                var wins = teamResults.Select(x => (double)x.Wins).ToArray();
+                if (players.Length > 0)
+                    chart.AddScatter(players, wins, color, label: team, lineWidth: 2, markerSize: 5);
             }
-            //create chartareas...
-            ChartArea ca = new ChartArea
-            {
-                Name = "ChartArea1",
-                BackColor = Color.White,
-                BorderColor = Color.FromArgb(26, 59, 105),
-                BorderWidth = 0,
-                BorderDashStyle = ChartDashStyle.Solid,
-                AxisX = new Axis(),
-                AxisY = new Axis()
-            };
-            chart.ChartAreas.Add(ca);
-            chart.Legends.Add(legend);
-            //databind...
-            //chart.DataBind();
-            //save result
-
-
-
+            chart.Legend(location: Alignment.UpperRight);
             var path = Path.Combine(Bot.RootDirectory, "myChart.png");
-            chart.SaveImage(path, ChartImageFormat.Png);
+            chart.SaveFig(path);
             SendImage(path, u.Message.Chat.Id);
             UpdateHandler.Send(result.Select(x => new { x.Players, x.Games}).Distinct().Aggregate("", (a, b) => $"{a}\n{b.Players}: {b.Games}"), u.Message.Chat.Id);
         }
@@ -225,3 +144,4 @@ sum(count(x.Gameid)) over (partition by players) as Games
         
     }
 }
+

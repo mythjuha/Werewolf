@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using System.Text.Json;
 using TcpFramework;
 using TcpFramework.Server;
 using Werewolf_Control.Models;
@@ -49,8 +49,10 @@ namespace Werewolf_Control.Helpers
                 {
                     if (String.IsNullOrWhiteSpace(msg) || String.IsNullOrWhiteSpace(msg.Replace("\0", "")))
                         continue;
-                    dynamic m = JsonConvert.DeserializeObject(msg);
-                    string t = m.JType?.ToString();
+                    using var document = JsonDocument.Parse(msg);
+                    string t = document.RootElement.TryGetProperty("JType", out var typeProperty)
+                        ? typeProperty.GetString()
+                        : null;
                     var nodes = Bot.Nodes.ToList();
                     
                     if (t != null)
@@ -85,10 +87,10 @@ namespace Werewolf_Control.Helpers
                                     Uptime = DateTime.UtcNow - Bot.StartTime,
                                     Status = Bot.CurrentStatus
                                 };
-                                message.Reply(JsonConvert.SerializeObject(status));
+                                message.Reply(JsonSerializer.Serialize(status));
                                 break;
                             case "GetNodeInfo":
-                                var gni = JsonConvert.DeserializeObject<GetNodeInfo>(msg);
+                                var gni = JsonSerializer.Deserialize<GetNodeInfo>(msg);
                                 var node = nodes.FirstOrDefault(x => x.ClientId == gni.ClientId);
                                 if (node == null)
                                 {
@@ -106,11 +108,11 @@ namespace Werewolf_Control.Helpers
                                     Uptime = node.Uptime,
                                     Version = node.Version
                                 };
-                                message.Reply(JsonConvert.SerializeObject(nodeInfo));
+                                message.Reply(JsonSerializer.Serialize(nodeInfo));
                                 break;
 
                             case "GetGameInfo":
-                                var ggi = JsonConvert.DeserializeObject<GetGameInfo>(msg);
+                                var ggi = JsonSerializer.Deserialize<GetGameInfo>(msg);
                                 //get the node
 
                                 var gamenode = Bot.Nodes.FirstOrDefault(x => x.ClientId == ggi.ClientId);
@@ -121,7 +123,7 @@ namespace Werewolf_Control.Helpers
                                     message.Reply("null");
                                     return;
                                 }
-                                var response = JsonConvert.SerializeObject(game);
+                                var response = JsonSerializer.Serialize(game);
                                 using (var sw = new StreamWriter(Path.Combine(Bot.RootDirectory, "..\\tcpadmin.log"), true))
                                 {
                                     sw.WriteLine("Control Replying to GetGameInfo with:\n" + response + "\n\n");
@@ -130,7 +132,7 @@ namespace Werewolf_Control.Helpers
                                 message.Reply(response);
                                 break;
                             case "StopNodeRequest":
-                                var snr = JsonConvert.DeserializeObject<StopNodeRequest>(msg);
+                                var snr = JsonSerializer.Deserialize<StopNodeRequest>(msg);
                                 Bot.Nodes.FirstOrDefault(x => x.ClientId == snr.ClientId)?.ShutDown();
                                 break;
                             default:
@@ -227,15 +229,17 @@ namespace Werewolf_Control.Helpers
                 {
                     if (String.IsNullOrWhiteSpace(msg) || String.IsNullOrWhiteSpace(msg.Replace("\0", "")))
                         continue;
-                    dynamic m = JsonConvert.DeserializeObject(msg);
-                    string t = m.JType?.ToString();
+                    using var document = JsonDocument.Parse(msg);
+                    string t = document.RootElement.TryGetProperty("JType", out var typeProperty)
+                        ? typeProperty.GetString()
+                        : null;
                     if (t != null)
                     {
                         Node node;
                         switch (t)
                         {
                             case "ClientRegistrationInfo":
-                                var cri = JsonConvert.DeserializeObject<ClientRegistrationInfo>(msg);
+                                var cri = JsonSerializer.Deserialize<ClientRegistrationInfo>(msg);
                                 //validate the client
                                 if (cri.Secret == Settings.TcpSecret)
                                 {
@@ -248,7 +252,7 @@ namespace Werewolf_Control.Helpers
                                 }
                                 break;
                             case "NodeInfo":
-                                var ni = JsonConvert.DeserializeObject<NodeInfo>(msg);
+                                var ni = JsonSerializer.Deserialize<NodeInfo>(msg);
                                 node = Bot.Nodes.FirstOrDefault(x => x.ClientId == ni.ClientId);
                                 if (node == null)
                                 {
@@ -270,7 +274,7 @@ namespace Werewolf_Control.Helpers
                                     node.ShuttingDown = true;
                                 break;
                             case "GameEndInfo":
-                                var gei = JsonConvert.DeserializeObject<GameEndInfo>(msg);
+                                var gei = JsonSerializer.Deserialize<GameEndInfo>(msg);
                                 node = Bot.Nodes.FirstOrDefault(x => x.ClientId == gei.ClientId);
                                 node?.EndGame(gei);
                                 break;
@@ -306,7 +310,7 @@ namespace Werewolf_Control.Helpers
             {
                 if (catchError)
                     Program.Log($"------------\nError sending broadcast!\n{e.Message}\n{message}\n------------", true);
-                else throw e;
+                else throw;
             }
         }
 
@@ -320,7 +324,7 @@ namespace Werewolf_Control.Helpers
             {
                 if (catchError)
                     Program.Log($"------------\nError sending broadcast!\n{e.Message}\n{message}\n------------", true);
-                else throw e;
+                else throw;
             }
             return null;
         }

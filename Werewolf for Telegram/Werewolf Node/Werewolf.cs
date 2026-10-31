@@ -1,5 +1,6 @@
+using Telegram.Bot.Requests;
 using Database;
-using Newtonsoft.Json;
+using System.Text.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -124,7 +125,7 @@ namespace Werewolf_Node
                 BurnToDeath = Settings.BurnToDeath.ToList();
 
                 new Thread(GroupQueue).Start();
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     ChatGroup = chatGroup;
                     ChatId = chatid;
@@ -138,7 +139,7 @@ namespace Werewolf_Node
                     }
                     try
                     {
-                        var memberCount = Program.Bot.GetChatMemberCountAsync(chatId: chatid).Result;
+                        var memberCount = Program.Bot.SendRequest(new GetChatMemberCountRequest { ChatId = chatid }).Result;
                         DbGroup.MemberCount = memberCount;
 
                         db.SaveChanges();
@@ -152,7 +153,7 @@ namespace Werewolf_Node
                     var player = db.Players.FirstOrDefault(x => x.TelegramId == u.Id);
                     if (player?.CustomGifSet != null)
                     {
-                        var gifset = JsonConvert.DeserializeObject<CustomGifData>(player.CustomGifSet);
+                        var gifset = JsonSerializer.Deserialize<CustomGifData>(player.CustomGifSet);
                         if (gifset.Approved == true)
                         {
                             if (!(gifset.NSFW == true && !AllowNSFW))
@@ -318,7 +319,7 @@ namespace Werewolf_Node
                 Language = Locale.Language;
 
                 // also load fallback file
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     // if fallback doesn't exist, it will just be ignored
                     Language fallback = db.Language.FirstOrDefault(x => x.Base == Locale.Base && x.FileName != language && x.IsDefault);
@@ -501,7 +502,7 @@ namespace Werewolf_Node
                     }
                     Thread.Sleep(1000);
                 }
-                Program.Bot.EditMessageReplyMarkupAsync(chatId: ChatId, messageId: _joinMsgId, replyMarkup: null);
+                Program.Bot.SendRequest(new EditMessageReplyMarkupRequest { ChatId = ChatId, MessageId = _joinMsgId });
                 IsJoining = false;
                 IsInitializing = true;
 
@@ -560,7 +561,7 @@ namespace Werewolf_Node
                 IsRunning = true;
                 AssignRoles();
                 //create new game for database
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     _timeStarted = DateTime.Now;
                     var game = new Database.Game
@@ -608,7 +609,7 @@ namespace Werewolf_Node
 
                     GameId = db.Games.Where(x => x.GroupId == ChatId).OrderByDescending(x => x.Id).FirstOrDefault()?.Id ?? 0;
 
-                    db.Database.ExecuteSqlCommand($"DELETE FROM NotifyGame WHERE GroupId = {ChatId}");
+                    db.ExecuteSql($"DELETE FROM NotifyGame WHERE GroupId = {ChatId}");
                 }
                 IsInitializing = false;
 
@@ -639,18 +640,11 @@ namespace Werewolf_Node
                     LynchCycle();
                 }
             }
-            catch (System.Data.Entity.Validation.DbEntityValidationException ex)
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
             {
                 var msg = "";
                 if (ex.InnerException != null)
                     msg += ex.InnerException.Message;
-                foreach (var ves in ex.EntityValidationErrors)
-                {
-                    foreach (var ve in ves.ValidationErrors)
-                    {
-                        msg += $"{ves.Entry.Entity}:{ve.ErrorMessage}\n";
-                    }
-                }
 
 
                 Send("Something just went terribly wrong, I had to cancel the game....");
@@ -746,7 +740,7 @@ namespace Werewolf_Node
 
                 //bool sendPM = false;
 
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var user = db.Players.FirstOrDefault(x => x.TelegramId == u.Id);
                     if (user == null)
@@ -766,7 +760,7 @@ namespace Werewolf_Node
                     user.UserName = u.Username;
                     user.Name = $"{u.FirstName} {u.LastName}".Trim();
                     if (!String.IsNullOrEmpty(user.CustomGifSet))
-                        p.GifPack = JsonConvert.DeserializeObject<CustomGifData>(user.CustomGifSet);
+                        p.GifPack = JsonSerializer.Deserialize<CustomGifData>(user.CustomGifSet);
                     if (user.NewAchievements == null)
                         user.NewAchievements = new BitArray(200).ToByteArray();
                     // switch achv system
@@ -2672,7 +2666,7 @@ namespace Werewolf_Node
                         var groupIdles24 = 0;
                         try
                         {
-                            using (var db = new WWContext())
+                            using (var db = new WWCoreContext())
                             {
                                 idles24 = db.GetIdleKills24Hours(p.Id).FirstOrDefault() ?? 0;
                                 groupIdles24 = db.GetGroupIdleKills24Hours(p.Id, ChatId).FirstOrDefault() ?? 0;
@@ -4784,7 +4778,7 @@ namespace Werewolf_Node
 
         private bool DoGameEnd(ITeam team)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 //Log.WriteLine($"Doing game end.  IsRunning: {IsRunning}");
                 if (!IsRunning) return true;
@@ -5512,7 +5506,7 @@ namespace Werewolf_Node
         {
             foreach (var id in _joinButtons)
             {
-                Program.Bot.DeleteMessageAsync(chatId: ChatId, messageId: id);
+                Program.Bot.SendRequest(new DeleteMessageRequest { ChatId = ChatId, MessageId = id });
                 Thread.Sleep(500);
             }
         }
@@ -5558,7 +5552,7 @@ namespace Werewolf_Node
             try
             {
                 if (IsJoining) //try to remove the joining button...
-                    Program.Bot.EditMessageReplyMarkupAsync(chatId: ChatId, messageId: _joinMsgId, replyMarkup: null);
+                    Program.Bot.SendRequest(new EditMessageReplyMarkupRequest { ChatId = ChatId, MessageId = _joinMsgId });
             }
             catch
             {
@@ -5703,7 +5697,7 @@ namespace Werewolf_Node
         internal static void ReplyToCallback(CallbackQuery query, string text = null, bool edit = true, bool showAlert = false, InlineKeyboardMarkup replyMarkup = null)
         {
             //first answer the callback
-            Program.Bot.AnswerCallbackQueryAsync(callbackQueryId: query.Id, text: edit ? null : text, showAlert: showAlert);
+            Program.Bot.SendRequest(new AnswerCallbackQueryRequest { CallbackQueryId = query.Id, Text = edit ? null : text, ShowAlert = showAlert });
             //edit the original message
             if (edit)
                 Edit(query, text, replyMarkup);
@@ -5794,7 +5788,7 @@ namespace Werewolf_Node
         private void DBKill(IPlayer killer, IPlayer victim, KillMthd method)
         {
             _playerListChanged = true;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 try
                 {
@@ -5900,7 +5894,7 @@ namespace Werewolf_Node
                 DBKill(killer, victim, method);
         }
 
-        private Player GetDBPlayer(IPlayer player, WWContext db)
+        private Player GetDBPlayer(IPlayer player, WWCoreContext db)
         {
             if (player.DBPlayerId == 0)
             {
@@ -5923,7 +5917,7 @@ namespace Werewolf_Node
             return player?.GamePlayers.FirstOrDefault(x => x.GameId == GameId);
         }
 
-        private GamePlayer GetDBGamePlayer(IPlayer player, WWContext db)
+        private GamePlayer GetDBGamePlayer(IPlayer player, WWCoreContext db)
         {
             if (player.DBGamePlayerId == 0)
             {
@@ -5945,7 +5939,7 @@ namespace Werewolf_Node
         private void UpdateAchievements()
         {
             if (Players == null) return;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 //check for convention
                 var convention = Players.Count(x => x.PlayerRole == IRole.Cultist && !x.IsDead) >= 10;
@@ -6086,7 +6080,7 @@ namespace Werewolf_Node
 
         private void UpdateGroupRanking()
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var refreshdate = db.RefreshDate.FirstOrDefault().Date;
                 if (DateTime.Now.Date - refreshdate >= TimeSpan.FromDays(7))
@@ -6177,7 +6171,7 @@ namespace Werewolf_Node
         /*
         private void AddAchievement(IPlayer player, Achievements a)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = GetDBPlayer(player, db);
                 if (p != null)
@@ -6201,7 +6195,7 @@ namespace Werewolf_Node
 
         private void AddAchievement(IPlayer player, AchievementsReworked a)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = GetDBPlayer(player, db);
                 if (p != null)
@@ -6220,7 +6214,7 @@ namespace Werewolf_Node
         /*
         private void SwitchAchievementsSystem(IPlayer player)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = GetDBPlayer(player, db);
                 var ach2 = p.NewAchievements == null ? new BitArray(200) : new BitArray(p.NewAchievements);

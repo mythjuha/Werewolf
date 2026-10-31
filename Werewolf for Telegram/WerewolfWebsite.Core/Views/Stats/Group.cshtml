@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = ViewData["Title"] ?? "Group Stats";
+    var groupId = (long)(ViewData["Id"] ?? 0L);
+}
+<section>
+    <div class="box-static box-border-top padding-0">
+        <div class="box-title margin-bottom-30">
+            <h2 class="size-20">Group Stats</h2>
+            <p>@ViewData["Title"]</p>
+            <p>(<b>NOTE</b> - <i>you must play at least 20 games to be included</i>)</p>
+        </div>
+        <div id="groupStats" class="table-responsive">Loading...</div>
+    </div>
+</section>
+@section Scripts {
+<script>
+fetch('/Stats/GroupStats?groupid=@groupId').then(response => response.json()).then(html => document.getElementById('groupStats').innerHTML = html);
+</script>
+}

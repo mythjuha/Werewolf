@@ -15,9 +15,12 @@ using Database;
 using Telegram.Bot.Types.InputFiles;
 using System.Data.SqlTypes;
 using System.Net.Http;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace ClearUpdates
 {
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     class Program
     {
         static int total = 0;
@@ -36,6 +39,17 @@ namespace ClearUpdates
         const long DevGroup = -1001077134233;
         static void Main(string[] args)
         {
+            var builder = Host.CreateApplicationBuilder(args);
+            var connectionString = builder.Configuration.GetConnectionString("BotConnectionString");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("ConnectionStrings:BotConnectionString is required.");
+            }
+
+            WWCoreContext.Configure(connectionString);
+            using var host = builder.Build();
+            host.Start();
+
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
                 var exc = (Exception)e.ExceptionObject;
@@ -64,7 +78,7 @@ namespace ClearUpdates
             Api.OnCallbackQuery += Api_OnCallbackQuery;
             Api.StartReceiving();
             new Task(() => MonitorStatus()).Start();
-            Thread.Sleep(-1);
+            host.WaitForShutdown();
         }
 
         private static void ApiOnOnUpdate(object sender, UpdateEventArgs updateEventArgs)
@@ -144,9 +158,9 @@ namespace ClearUpdates
             var lastChange = DateTime.Now;
             while (true)
             {
-                using (var DB = new WWContext())
+                using (var DB = new WWCoreContext())
                 {
-                    var status = DB.BotStatus.First(x => x.Id == 1);
+                    var status = DB.BotStatuses.First(x => x.Id == 1);
                     if (status.BotStatus != "Normal")
                     {
                         if (!dead)
@@ -267,7 +281,7 @@ namespace ClearUpdates
             }
             if (menu.Buttons.Count > 0)
             {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     foreach (var spam in ToBan)
                     {

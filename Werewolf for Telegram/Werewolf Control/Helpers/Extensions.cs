@@ -31,14 +31,10 @@ namespace Werewolf_Control.Helpers
         }
         public static void Shuffle<T>(this IList<T> list)
         {
-            RNGCryptoServiceProvider provider = new RNGCryptoServiceProvider();
             int n = list.Count;
             while (n > 1)
             {
-                byte[] box = new byte[1];
-                do provider.GetBytes(box);
-                while (!(box[0] < n * (Byte.MaxValue / n)));
-                int k = (box[0] % n);
+                int k = RandomNumberGenerator.GetInt32(n);
                 n--;
                 T value = list[k];
                 list[k] = list[n];
@@ -133,7 +129,7 @@ namespace Werewolf_Control.Helpers
             return result;
         }
 
-        public static Player GetTarget(this Update u, WWContext db)
+        public static Player GetTarget(this Update u, WWCoreContext db)
         {
             var message = u.Message;
 
@@ -185,7 +181,7 @@ namespace Werewolf_Control.Helpers
             return result ?? sourceUser;
         }
 
-        public static Player GetBasePlayer(this Message m, WWContext db)
+        public static Player GetBasePlayer(this Message m, WWCoreContext db)
         {
             return db.Players.FirstOrDefault(x => x.TelegramId == m.From.Id);
         }
@@ -213,3 +209,4 @@ namespace Werewolf_Control.Helpers
         }
     }
 }
+

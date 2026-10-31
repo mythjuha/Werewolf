@@ -1,0 +1,34 @@
+@{
+    ViewData["Title"] = ViewData["Title"] ?? "Player Stats";
+    var playerId = (long)(ViewData["Id"] ?? 0L);
+}
+<section>
+    <div class="container">
+        <div class="box-static box-border-top padding-6">
+            <div class="box-title"><h3 class="size-20">Player Stats</h3><p>@ViewData["Title"]</p></div>
+            <div id="playerStats" class="table-responsive">Loading...</div>
+            <div id="playerKills" class="table-responsive">Loading...</div>
+            <div id="playerKilledBy" class="table-responsive">Loading...</div>
+            <div id="playerDeaths" class="table-responsive">Loading...</div>
+            <div id="playerAchievements" class="table-responsive">Loading...</div>
+            <div id="playerLockedAchievements" class="table-responsive">Loading...</div>
+        </div>
+    </div>
+</section>
+@section Scripts {
+<script>
+const playerStatsEndpoints = [
+    ['playerStats', 'PlayerStats'],
+    ['playerKills', 'PlayerKills'],
+    ['playerKilledBy', 'PlayerKilledBy'],
+    ['playerDeaths', 'PlayerDeaths'],
+    ['playerAchievements', 'PlayerAchievements'],
+    ['playerLockedAchievements', 'PlayerLockedAchievements']
+];
+for (const [elementId, endpoint] of playerStatsEndpoints) {
+    fetch(`/Stats/${endpoint}?pid=@playerId`)
+        .then(response => response.json())
+        .then(html => document.getElementById(elementId).innerHTML = html);
+}
+</script>
+}

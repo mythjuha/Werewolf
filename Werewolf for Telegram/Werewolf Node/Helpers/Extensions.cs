@@ -11,7 +11,7 @@ namespace Werewolf_Node.Helpers
     {
         public static void Shuffle<T>(this IList<T> list)
         {
-            RNGCryptoServiceProvider provider = new RNGCryptoServiceProvider();
+            using RandomNumberGenerator provider = RandomNumberGenerator.Create();
             int n = list.Count;
             while (n > 1)
             {

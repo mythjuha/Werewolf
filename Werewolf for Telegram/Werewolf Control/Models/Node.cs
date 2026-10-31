@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Shared;
 using Telegram.Bot.Types;
 using Werewolf_Control.Helpers;
@@ -35,7 +35,7 @@ namespace Werewolf_Control.Models
                 GameMode = gameMode,
                 User = update.Message.From
             };
-            this.Broadcast(JsonConvert.SerializeObject(info));
+            this.Broadcast(JsonSerializer.Serialize(info));
             this.Games.Add(new GameInfo
             {
                 ChatGroup = info.Chat.Title,
@@ -56,19 +56,19 @@ namespace Werewolf_Control.Models
 
         public void SendReply(Update update)
         {
-            var info = JsonConvert.SerializeObject(new ReplyInfo {Update = update});
+            var info = JsonSerializer.Serialize(new ReplyInfo {Update = update});
             this.Broadcast(info);
         }
 
         public void ShutDown(bool kill = false)
         {
             ShuttingDown = true;
-            this.Broadcast(JsonConvert.SerializeObject(new UpdateNodeInfo() {Kill = kill}));
+            this.Broadcast(JsonSerializer.Serialize(new UpdateNodeInfo() {Kill = kill}));
         }
 
         public void SendReply(CallbackQuery query, string gameid)
         {
-            var info = JsonConvert.SerializeObject(new CallbackInfo {Query = query, GameId = gameid});
+            var info = JsonSerializer.Serialize(new CallbackInfo {Query = query, GameId = gameid});
             this.Broadcast(info);
         }
 
@@ -76,7 +76,7 @@ namespace Werewolf_Control.Models
         {
             try
             {
-                return JsonConvert.DeserializeObject<GameInfo>(this.WriteLineAndGetReply(JsonConvert.SerializeObject(ggi)).MessageString);
+                return JsonSerializer.Deserialize<GameInfo>(this.WriteLineAndGetReply(JsonSerializer.Serialize(ggi)).MessageString);
             }
             catch
             {

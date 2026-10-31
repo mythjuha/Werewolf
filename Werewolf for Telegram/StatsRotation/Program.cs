@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Database;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace StatsRotation
 {
@@ -14,8 +16,19 @@ namespace StatsRotation
     {
         static void Main(string[] args)
         {
+            var builder = Host.CreateApplicationBuilder(args);
+            var connectionString = builder.Configuration.GetConnectionString("BotConnectionString");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("ConnectionStrings:BotConnectionString is required.");
+            }
+
+            WWCoreContext.Configure(connectionString);
+            using var host = builder.Build();
+            host.Start();
+
             new Thread(StatThread).Start();
-            Thread.Sleep(-1);
+            host.WaitForShutdown();
         }
 
         static void StatThread()
@@ -80,22 +93,22 @@ namespace StatsRotation
             try
             {
                 //now do daily counts
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Console.WriteLine("Updating Daily Counts");
                     //get daily counts
                     var counts = db.getDailyCounts();
                     db.DailyCounts.RemoveRange(db.DailyCounts);
                     foreach (var count in counts)
-                        db.DailyCounts.Add(new DailyCount { Day = count.Day.Value, Games = count.Games.Value, Groups = count.Groups.Value, Users = count.players.Value });
+                        db.DailyCounts.Add(new DailyCount { Day = DateOnly.FromDateTime(count.Day.Value), Games = count.Games.Value, Groups = count.Groups.Value, Users = count.players.Value });
                     db.SaveChanges();
                     Console.WriteLine("Done");
 
                 }
 
-                using (var DB = new WWContext())
+                using (var DB = new WWCoreContext())
                 {
-                    DB.Database.CommandTimeout = 600;
+                    DB.Database.SetCommandTimeout(600);
                     Console.WriteLine("Total games..");
                     var gamesPlayed = DB.Games.Count();
                     Console.WriteLine("Night 1 Death");
@@ -110,7 +123,7 @@ namespace StatsRotation
                     var stat = DB.GlobalStats.FirstOrDefault();
                     if (stat == null)
                     {
-                        stat = DB.GlobalStats.Create();
+                        stat = new GlobalStat();
                         DB.GlobalStats.Add(stat);
                     }
 
@@ -138,14 +151,14 @@ namespace StatsRotation
                 }
 
                 //now do daily counts
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     Console.WriteLine("Updating Daily Counts");
                     //get daily counts
                     var counts = db.getDailyCounts();
                     db.DailyCounts.RemoveRange(db.DailyCounts);
                     foreach (var count in counts)
-                        db.DailyCounts.Add(new DailyCount { Day = count.Day.Value, Games = count.Games.Value, Groups = count.Groups.Value, Users = count.players.Value });
+                        db.DailyCounts.Add(new DailyCount { Day = DateOnly.FromDateTime(count.Day.Value), Games = count.Games.Value, Groups = count.Groups.Value, Users = count.players.Value });
                     db.SaveChanges();
                     Console.WriteLine("Done");
 
@@ -166,7 +179,7 @@ namespace StatsRotation
             try
             {
                 var runStats = false;
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     //first, check that we should even run stats on this group
                     var grp = db.Groups.FirstOrDefault(x => x.GroupId == groupid);
@@ -194,7 +207,7 @@ namespace StatsRotation
 
                     if (stat == null)
                     {
-                        stat = db.GroupStats.Create();
+                        stat = new GroupStat();
                         stat.GroupId = groupid;
                         db.GroupStats.Add(stat);
                     }

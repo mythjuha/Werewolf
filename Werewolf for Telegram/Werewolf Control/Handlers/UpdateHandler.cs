@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Telegram.Bot.Args;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -67,7 +67,7 @@ namespace Werewolf_Control.Handler
                 try
                 {
                     //first load up the ban list
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         foreach (var id in SpamBanList)
                         {
@@ -175,7 +175,7 @@ namespace Werewolf_Control.Handler
                                     //ban
                                     SpamBanList.Add(key);
                                     var count = 0;
-                                    using (var db = new WWContext())
+                                    using (var db = new WWCoreContext())
                                     {
                                         count = db.Players.FirstOrDefault(x => x.TelegramId == key).TempBanCount ?? 0;
                                     }
@@ -233,7 +233,7 @@ namespace Werewolf_Control.Handler
                 // Not only messages in topics have a message thread ID, but also reply threads in ordinary supergroups
                 // Which in itself would be fine, but passing such a message thread ID as message_thread_id when making
                 // requests is an error. That's only allowed for forum groups. So let's disregard that thread ID otherwise
-                if (update.Message.MessageThreadId.HasValue && !(update.Message.Chat.IsForum ?? false))
+                if (update.Message.MessageThreadId.HasValue && !update.Message.Chat.IsForum)
                 {
                     update.Message.MessageThreadId = null;
                 }
@@ -282,7 +282,7 @@ namespace Werewolf_Control.Handler
 
                 //        try
                 //        {
-                //            using (var db = new WWContext())
+                //            using (var db = new WWCoreContext())
                 //            {
                 //                var grps = db.Groups.Where(x => x.GroupId == id);
                 //                if (!grps.Any())
@@ -397,7 +397,7 @@ namespace Werewolf_Control.Handler
                                                 "No games in support chat!\nIf you want to play, find a group in the /grouplist.",
                                                 id);
                                         else if (id == Settings.PersianSupportChatId)
-                                            Send("اینجا گروه پشتیبانیه نه بازی، لطفا دکمه استارت رو نزنید.", id);
+                                            Send("Ø§ÛŒÙ†Ø¬Ø§ Ú¯Ø±ÙˆÙ‡ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒÙ‡ Ù†Ù‡ Ø¨Ø§Ø²ÛŒØŒ Ù„Ø·ÙØ§ Ø¯Ú©Ù…Ù‡ Ø§Ø³ØªØ§Ø±Øª Ø±Ùˆ Ù†Ø²Ù†ÛŒØ¯.", id);
                                         else if (id == Settings.TranslationChatId)
                                             Send("No games in translation group!", id);
                                         else if (id == Settings.BetaReportingChatId)
@@ -513,10 +513,10 @@ namespace Werewolf_Control.Handler
                                 }
                             }
                             break;
-                        case MessageType.ChatMemberLeft:
-                        case MessageType.ChatMembersAdded:
-                        case MessageType.MigratedToSupergroup:
-                            using (var DB = new WWContext())
+                        case MessageType.LeftChatMember:
+                        case MessageType.NewChatMembers:
+                        case MessageType.MigrateToChatId:
+                            using (var DB = new WWCoreContext())
                             {
                                 Bot.MessagesProcessed++;
                                 id = update.Message.Chat.Id;
@@ -671,7 +671,7 @@ namespace Werewolf_Control.Handler
             //get the amount paid
             var amt = q.TotalAmount / 100;
 
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 //get the player
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == message.From.Id);
@@ -683,17 +683,17 @@ namespace Werewolf_Control.Handler
                 }
                 if (p.DonationLevel == null)
                     p.DonationLevel = 0;
-                p.DonationLevel += amt;
+                p.DonationLevel = (p.DonationLevel ?? 0) + (int)amt;
                 var level = p.DonationLevel ?? 0;
                 var badge = "";
                 if (level >= 100)
-                    badge += " 🥇";
+                    badge += " ðŸ¥‡";
                 else if (level >= 50)
-                    badge += " 🥈";
+                    badge += " ðŸ¥ˆ";
                 else if (level >= 10)
-                    badge += " 🥉";
+                    badge += " ðŸ¥‰";
                 if (p.Founder ?? false)
-                    badge += "💎";
+                    badge += "ðŸ’Ž";
 
                 Bot.Send($"Successfully received ${amt} from you! YAY!\nTotal Donated: ${level}\nCurrent Badge (ingame): {badge}", message.From.Id);
                 //check to see how many people have purchased gif packs
@@ -713,7 +713,7 @@ namespace Werewolf_Control.Handler
                         if (String.IsNullOrEmpty(json))
                             data = new CustomGifData();
                         else
-                            data = JsonConvert.DeserializeObject<CustomGifData>(json);
+                            data = JsonSerializer.Deserialize<CustomGifData>(json);
                         if (!data.HasPurchased)
                         {
                             Bot.Send(
@@ -722,7 +722,7 @@ namespace Werewolf_Control.Handler
                         }
                         data.HasPurchased = true;
 
-                        json = JsonConvert.SerializeObject(data);
+                        json = JsonSerializer.Serialize(data);
                         p.CustomGifSet = json;
                     }
                 }
@@ -772,7 +772,7 @@ namespace Werewolf_Control.Handler
         {
             Bot.MessagesProcessed++;
             //Bot.CommandsReceived++;
-            using (var DB = new WWContext())
+            using (var DB = new WWCoreContext())
             {
                 try
                 {
@@ -843,7 +843,7 @@ namespace Werewolf_Control.Handler
                                     if (query.Message.Chat.Type != ChatType.Private)
                                         Send("I will send you the gifs in private", query.Message.Chat.Id);
 
-                                    pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                                    pack = JsonSerializer.Deserialize<CustomGifData>(json);
                                     var id = query.From.Id;
                                     Send($"Sending gifs for {pid}", id);
                                     Thread.Sleep(1000);
@@ -900,7 +900,7 @@ namespace Werewolf_Control.Handler
                                         return;
                                     }
 
-                                    pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                                    pack = JsonSerializer.Deserialize<CustomGifData>(json);
                                     new Thread(() => Task.WhenAll(DownloadGifFromJson(pack, query.Message))).Start();
                                     id = query.From.Id;
                                     pack.Approved = true;
@@ -910,7 +910,7 @@ namespace Werewolf_Control.Handler
                                     msg = $"Approval Status: ";
                                     by = DB.Players.FirstOrDefault(x => x.TelegramId == pack.ApprovedBy);
                                     msg += "Approved By " + by.Name + "\nNSFW: " + pack.NSFW;
-                                    tplayer.CustomGifSet = JsonConvert.SerializeObject(pack);
+                                    tplayer.CustomGifSet = JsonSerializer.Serialize(pack);
                                     DB.SaveChanges();
                                     Bot.Send(msg, query.Message.Chat.Id);
                                     Bot.Send(msg, pid);
@@ -931,7 +931,7 @@ namespace Werewolf_Control.Handler
                                         return;
                                     }
 
-                                    pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                                    pack = JsonSerializer.Deserialize<CustomGifData>(json);
                                     new Thread(() => Task.WhenAll(DownloadGifFromJson(pack, query.Message))).Start();
                                     id = query.From.Id;
                                     pack.Approved = true;
@@ -941,7 +941,7 @@ namespace Werewolf_Control.Handler
                                     msg = $"Approval Status: ";
                                     by = DB.Players.FirstOrDefault(x => x.TelegramId == pack.ApprovedBy);
                                     msg += "Approved By " + by.Name + "\nNSFW: " + pack.NSFW;
-                                    tplayer.CustomGifSet = JsonConvert.SerializeObject(pack);
+                                    tplayer.CustomGifSet = JsonSerializer.Serialize(pack);
                                     DB.SaveChanges();
                                     Bot.Send(msg, query.Message.Chat.Id);
                                     Bot.Send(msg, pid);
@@ -952,7 +952,7 @@ namespace Werewolf_Control.Handler
                                     json = tplayer?.CustomGifSet;
                                     if (!string.IsNullOrEmpty(json))
                                     {
-                                        pack = JsonConvert.DeserializeObject<CustomGifData>(json);
+                                        pack = JsonSerializer.Deserialize<CustomGifData>(json);
                                         pack.Submitted = false;
                                         DB.SaveChanges();
                                     }
@@ -1071,7 +1071,7 @@ namespace Werewolf_Control.Handler
                             var userid = long.Parse(args[2]);
                             try
                             {
-                                using (var db = new WWContext())
+                                using (var db = new WWCoreContext())
                                 {
                                     var para = db.Players.FirstOrDefault(x => x.Id == userid).Id;
 
@@ -1126,7 +1126,7 @@ namespace Werewolf_Control.Handler
                             var oldid = long.Parse(args[1]);
                             var newid = long.Parse(args[2]);
                             var result = DB.RestoreAccount(oldid, newid);
-                            using (var db = new WWContext())
+                            using (var db = new WWCoreContext())
                             {
                                 var oldPlayer = db.Players.FirstOrDefault(x => x.TelegramId == oldid);
                                 var newPlayer = db.Players.FirstOrDefault(x => x.TelegramId == newid);
@@ -1205,7 +1205,7 @@ namespace Werewolf_Control.Handler
                             else
                             {
                                 //update the status
-                                var bot = DB.BotStatus.FirstOrDefault(x => x.BotName == choice);
+                                var bot = DB.BotStatuses.FirstOrDefault(x => x.BotName == choice);
                                 if (bot != null)
                                 {
                                     bot.BotStatus = args[3];
@@ -1244,12 +1244,12 @@ namespace Werewolf_Control.Handler
                             //make the menu
                             var rows = rankings.Select(x => new[] {
                                 InlineKeyboardButton.WithCallbackData(x.Language, $"pf|{grp.GroupId}|{x.Language}|i"),
-                                InlineKeyboardButton.WithCallbackData(x.Show == false ? "☑️" : "✅", $"pf|{grp.GroupId}|{x.Language}|t")
+                                InlineKeyboardButton.WithCallbackData(x.Show == false ? "â˜‘ï¸" : "âœ…", $"pf|{grp.GroupId}|{x.Language}|t")
                             }).ToList();
                             //add a button at the beginning and at the end
                             rows.Insert(0, new[] {
                                 InlineKeyboardButton.WithCallbackData("Global", $"pf|{grp.GroupId}|null|i"),
-                                InlineKeyboardButton.WithCallbackData(grp.Preferred == false ? "☑️" : "✅", $"pf|{grp.GroupId}|null|t")
+                                InlineKeyboardButton.WithCallbackData(grp.Preferred == false ? "â˜‘ï¸" : "âœ…", $"pf|{grp.GroupId}|null|t")
                             });
                             rows.Add(new[] { InlineKeyboardButton.WithCallbackData("Done", "done") });
                             //send everything
@@ -1399,8 +1399,8 @@ namespace Werewolf_Control.Handler
                             LanguageHelper.SendFile(query.Message.Chat.Id, query.Message.MessageThreadId, glang.Name);
                             break;
                         case "stopwaiting":
-                            using (var db = new WWContext())
-                                db.Database.ExecuteSqlCommand($"DELETE FROM NotifyGame WHERE GroupId = {groupid} AND UserId = {query.From.Id}");
+                            using (var db = new WWCoreContext())
+                                db.ExecuteSql($"DELETE FROM NotifyGame WHERE GroupId = {groupid} AND UserId = {query.From.Id}");
                             Bot.ReplyToCallback(query, GetLocaleString("DeletedFromWaitList", grp.Language, grp.Name));
                             break;
 #endregion
@@ -1990,7 +1990,7 @@ namespace Werewolf_Control.Handler
             }
         }
 
-        private static bool AddAchievement(Player p, AchievementsReworked a, WWContext db)
+        private static bool AddAchievement(Player p, AchievementsReworked a, WWCoreContext db)
         {
 
             if (p != null)
@@ -2253,7 +2253,7 @@ namespace Werewolf_Control.Handler
         {
             var buttons = new List<InlineKeyboardButton>();
 
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == id);
                 var disabledRoles = (IRole)(grp.RoleFlags ?? 0);
@@ -2263,7 +2263,7 @@ namespace Werewolf_Control.Handler
                     var roleAttr = role.GetRoleAttribute();
                     if (!roleAttr.CanBeDisabled) continue;
                     buttons.Add(InlineKeyboardButton.WithCallbackData(
-                        $"{roleAttr.Emoji} {(disabledRoles.HasFlag(role) ? "❌" : "✅")}",
+                        $"{roleAttr.Emoji} {(disabledRoles.HasFlag(role) ? "âŒ" : "âœ…")}",
                         $"togglerole|{id}|{(long)role}"));
                 }
 
@@ -2338,7 +2338,6 @@ namespace Werewolf_Control.Handler
                 new InlineQueryResultArticle(c.Command, c.Command,
                     new InputTextMessageContent(c.Content)
                     {
-                        DisableWebPagePreview = true,
                         ParseMode = ParseMode.Html
                     }
                 )
@@ -2348,4 +2347,5 @@ namespace Werewolf_Control.Handler
         }
     }
 }
+
 

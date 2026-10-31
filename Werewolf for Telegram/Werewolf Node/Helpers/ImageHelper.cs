@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using Database;
 using Telegram.Bot;
+using Telegram.Bot.Requests;
 
 namespace Werewolf_Node.Helpers
 {
@@ -16,14 +18,18 @@ namespace Werewolf_Node.Helpers
         internal static string ImagePath = @"c:\inetpub\werewolf\Images\";
         public static async void GetUserImage(int userid)
         {
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var p = db.Players.FirstOrDefault(x => x.TelegramId == userid);
                 if (p != null)
                 {
                     try
                     {
-                        var photos = await Program.Bot.GetUserProfilePhotosAsync(userId: userid, limit: 1);
+                        var photos = await Program.Bot.SendRequest(new GetUserProfilePhotosRequest
+                        {
+                            UserId = userid,
+                            Limit = 1
+                        });
                         if (photos.Photos.Length == 0) return;//nada
                         var sizes = photos.Photos[0];
                         var id = "";
@@ -41,9 +47,7 @@ namespace Werewolf_Node.Helpers
                         }
 
 
-                        Telegram.Bot.Types.File file;
-
-                        file = await Program.Bot.GetFileAsync(fileId: id);
+                        TGFile file = await Program.Bot.GetFileAsync(id);
 
                         var photoPath = file.FilePath;
                         var fileName = photoPath.Substring(photoPath.LastIndexOf("/") + 1);
@@ -68,9 +72,9 @@ namespace Werewolf_Node.Helpers
 
 
                         //now download the photo to the path
-                        using (var client = new WebClient())
+                        using (var client = new HttpClient())
                         {
-                            client.DownloadFile(new Uri(uri), ImagePath + fileName);
+                            System.IO.File.WriteAllBytes(ImagePath + fileName, client.GetByteArrayAsync(uri).GetAwaiter().GetResult());
                         }
                         p.ImageFile = fileName;
                         db.SaveChanges();

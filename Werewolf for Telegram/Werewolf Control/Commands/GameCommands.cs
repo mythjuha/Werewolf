@@ -45,7 +45,7 @@ namespace Werewolf_Control
         public static void Join(Update update, string[] args)
         {
             var id = update.Message.Chat.Id;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 if (update.Message.Chat.Type == ChatType.Private)
                 {
@@ -77,7 +77,7 @@ namespace Werewolf_Control
         public static void ForceStart(Update update, string[] args)
         {
             var id = update.Message.Chat.Id;
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var grp = db.Groups.FirstOrDefault(x => x.GroupId == id);
                 if (grp == null)
@@ -170,7 +170,7 @@ namespace Werewolf_Control
                 if (seconds < 0 && !isadmin)
                     Send(GetLocaleString("GroupAdminOnly", GetLanguage(id)), id); //otherwise we're allowing people to /forcestart
                 else
-                    using (var db = new WWContext())
+                    using (var db = new WWCoreContext())
                     {
                         var grp = db.Groups.FirstOrDefault(x => x.GroupId == update.Message.Chat.Id);
                         if (isadmin || (grp.HasFlag(GroupConfig.AllowExtend)))
@@ -197,7 +197,7 @@ namespace Werewolf_Control
                 groupname = update.Message.Chat.Title;
             }
             else if (args.Length >= 2 && !String.IsNullOrEmpty(args[1])) {
-                using (var db = new WWContext())
+                using (var db = new WWCoreContext())
                 {
                     var grp = GetGroup(args[1], db);
                     groupid = grp?.GroupId ?? 0;
@@ -211,10 +211,11 @@ namespace Werewolf_Control
                 return;
             }
 
-            using (var db = new WWContext())
-                db.Database.ExecuteSqlCommand($"DELETE FROM NotifyGame WHERE GroupId = {groupid} AND UserId = {update.Message.From.Id}");
+            using (var db = new WWCoreContext())
+                db.ExecuteSql($"DELETE FROM NotifyGame WHERE GroupId = {groupid} AND UserId = {update.Message.From.Id}");
 
             Send(GetLocaleString("DeletedFromWaitList", GetLanguage(update.Message.From.Id), groupname.ToBold()), update.Message.From.Id);
         }
     }
 }
+

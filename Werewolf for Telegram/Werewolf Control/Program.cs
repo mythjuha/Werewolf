@@ -10,18 +10,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Forms;
+using Microsoft.Extensions.Hosting;
 using Database;
 using Werewolf_Control.Handler;
 using Werewolf_Control.Helpers;
+using Microsoft.Extensions.Configuration;
 
 namespace Werewolf_Control
 {
     class Program
     {
+        internal static IConfiguration Configuration { get; private set; }
         internal static bool Running = true;
         private static bool _writingInfo = false;
         internal static PerformanceCounter CpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-        internal static float AvgCpuTime;
+        //internal static float AvgCpuTime;
         ///private static List<float> CpuTimes = new List<float>();
         internal static List<long> MessagesReceived = new List<long>();
         internal static List<long> MessagesProcessed = new List<long>();
@@ -45,7 +48,17 @@ namespace Werewolf_Control
         internal static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         static void Main(string[] args)
         {
-            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+            var builder = Host.CreateApplicationBuilder(args);
+            Configuration = builder.Configuration;
+            var connectionString = builder.Configuration.GetConnectionString("BotConnectionString");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("ConnectionStrings:BotConnectionString is required.");
+            }
+
+            WWCoreContext.Configure(connectionString);
+            using var host = builder.Build();
+            host.Start();
 
 #if !DEBUG
             AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
@@ -92,10 +105,10 @@ namespace Werewolf_Control
                 updateid = args[0];
             }
 
-            XsollaLink = Helpers.RegHelper.GetRegValue("XsollaLink");
-            XsollaApiId = Helpers.RegHelper.GetRegValue("XsollaApiId");
-            XsollaApiKey = Helpers.RegHelper.GetRegValue("XsollaApiKey");
-            try { xsollaProjId = int.Parse(Helpers.RegHelper.GetRegValue("XsollaProjId")); } catch { xsollaProjId = 0; }
+            XsollaLink = Configuration["XsollaLink"];
+            XsollaApiId = Configuration["XsollaApiId"];
+            XsollaApiKey = Configuration["XsollaApiKey"];
+            xsollaProjId = int.TryParse(Configuration["XsollaProjId"], out var projectId) ? projectId : 0;
             xsollaClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{XsollaApiId}:{XsollaApiKey}")));
 
             //Initialize the TCP connections
@@ -104,7 +117,7 @@ namespace Werewolf_Control
             Thread.Sleep(1000);
 
             //initialize EF before we start receiving
-            using (var db = new WWContext())
+            using (var db = new WWCoreContext())
             {
                 var count = db.GlobalBans.Count();
             }
@@ -127,7 +140,7 @@ namespace Werewolf_Control
             _timer.Enabled = true;
 
             //now pause the main thread to let everything else run
-            Thread.Sleep(-1);
+            host.WaitForShutdown();
         }
 
 
@@ -444,3 +457,4 @@ namespace Werewolf_Control
     }
     
 }
+

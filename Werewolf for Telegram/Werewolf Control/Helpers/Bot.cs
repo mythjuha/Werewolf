@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -9,17 +9,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Database;
-using Microsoft.Win32;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Requests;
 using Werewolf_Control.Handler;
 using Werewolf_Control.Models;
 using Telegram.Bot.Exceptions;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace Werewolf_Control.Helpers
 {
@@ -45,17 +45,14 @@ namespace Werewolf_Control.Helpers
         {
             get
             {
-                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
-                UriBuilder uri = new UriBuilder(codeBase);
-                string path = Uri.UnescapeDataString(uri.Path);
-                return Path.GetDirectoryName(path);
+                return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             }
         }
         internal static string LogDirectory = Path.Combine(RootDirectory, "..\\Logs\\");
         internal delegate void ChatCommandMethod(Update u, string[] args);
         internal static List<Command> Commands = new List<Command>();
 #if DEBUG
-        internal static string LanguageDirectory => Path.GetFullPath(Path.Combine(RootDirectory, @"..\..\..\Languages"));
+        internal static string LanguageDirectory => Path.GetFullPath(Path.Combine(RootDirectory, @"..\..\..\..\Languages"));
 #else
         internal static string LanguageDirectory => Path.GetFullPath(Path.Combine(RootDirectory, @"..\..\Languages"));
 #endif
@@ -63,19 +60,17 @@ namespace Werewolf_Control.Helpers
         public static void Initialize(string updateid = null)
         {
 
-            //get api token from registry
-            var key =
-                    RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64)
-                        .OpenSubKey("SOFTWARE\\Werewolf");
+            TelegramAPIKey = Program.Configuration[
 #if DEBUG
-            TelegramAPIKey = key.GetValue("DebugAPI").ToString();
+                "DebugAPI"
 #elif RELEASE
-            TelegramAPIKey = key.GetValue("ProductionAPI").ToString();
+                "ProductionAPI"
 #elif RELEASE2
-            TelegramAPIKey = key.GetValue("ProductionAPI2").ToString();
+                "ProductionAPI2"
 #elif BETA
-            TelegramAPIKey = key.GetValue("BetaAPI").ToString();
+                "BetaAPI"
 #endif
+            ];
             Api = new TelegramBotClient(TelegramAPIKey);
             //#if !BETA
             //            Api.Timeout = TimeSpan.FromSeconds(1.5);
@@ -107,7 +102,7 @@ namespace Werewolf_Control.Helpers
                 }
             }
 
-            ReceiverOptions receiverOptions = new ReceiverOptions() { AllowedUpdates = new[] { UpdateType.Message, UpdateType.MyChatMember, UpdateType.InlineQuery, UpdateType.ChosenInlineResult, UpdateType.CallbackQuery, UpdateType.PreCheckoutQuery }, Limit = 100, ThrowPendingUpdates = true };
+            ReceiverOptions receiverOptions = new ReceiverOptions() { AllowedUpdates = new[] { UpdateType.Message, UpdateType.MyChatMember, UpdateType.InlineQuery, UpdateType.ChosenInlineResult, UpdateType.CallbackQuery, UpdateType.PreCheckoutQuery }, Limit = 100 };
             var cts = new CancellationTokenSource();
 
 
@@ -168,13 +163,13 @@ namespace Werewolf_Control.Helpers
                     //let's see if Telegram is responding slowly....
                     Program.log.Info("Starting a getUpdates request");
                     sw.Start();
-                    updates = await client.GetUpdatesAsync(
-                        offset: MessageOffset,
-                        timeout: timeout,
-                        limit: options.Limit,
-                        allowedUpdates: options.AllowedUpdates,
-                        cancellationToken: cancellationToken
-                    ).ConfigureAwait(false);
+                    updates = await client.SendRequest(new GetUpdatesRequest
+                    {
+                        Offset = MessageOffset,
+                        Timeout = timeout,
+                        Limit = options.Limit,
+                        AllowedUpdates = options.AllowedUpdates
+                    }, cancellationToken).ConfigureAwait(false);
                     sw.Stop();
                     Program.log.Info($"Time to receive updates: {sw.ElapsedMilliseconds}ms");
                 }
@@ -248,7 +243,7 @@ namespace Werewolf_Control.Helpers
             if (e.Update.Message?.Sticker != null) return;
             if (e.Update.Message?.Video != null) return;
             if (e.Update.Message?.Voice != null) return;
-            //Program.log.Info(JsonConvert.SerializeObject(e.Update));
+            //Program.log.Info(JsonSerializer.Serialize(e.Update));
             //OnUpdate?.Invoke("receiver", e);
 
             switch (e.Update.Type)
@@ -413,14 +408,14 @@ namespace Werewolf_Control.Helpers
 
         internal static Task<Message> Edit(long id, int msgId, string text, InlineKeyboardMarkup replyMarkup = null, ParseMode parsemode = ParseMode.Html, bool disableWebPagePreview = false)
         {
-            return Bot.Api.EditMessageTextAsync(chatId: id, messageId: msgId, text: text, parseMode: parsemode, entities: null, disableWebPagePreview: disableWebPagePreview, replyMarkup: replyMarkup);
+            return Bot.Api.EditMessageTextAsync(chatId: id, messageId: msgId, text: text, parseMode: parsemode, disableWebPagePreview: disableWebPagePreview, replyMarkup: replyMarkup);
         }
 
         //        private static void ApiOnStatusChanged(object sender, StatusChangeEventArgs statusChangeEventArgs)
         //        {
         //            try
         //            {
-        //                using (var db = new WWContext())
+        //                using (var db = new WWCoreContext())
         //                {
         //                    var id =
         //#if RELEASE
@@ -540,3 +535,4 @@ namespace Werewolf_Control.Helpers
         }
     }
 }
+

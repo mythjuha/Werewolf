@@ -1,0 +1,7 @@
+@model WerewolfWebsite.Core.Models.ManageAccountViewModel
+@{ ViewData["Title"] = "Manage"; }
+<h2>Manage your account</h2>
+<p>Password configured: @Model.HasPassword</p>
+<p>Phone number: @(Model.PhoneNumber ?? "None")</p>
+<p>Two-factor authentication: @Model.TwoFactorEnabled</p>
+<a asp-action="ChangePassword">Change your password</a>

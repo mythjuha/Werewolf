@@ -7,16 +7,23 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Bot_Watcher
 {
     class Program
     {
-        internal static string RootDirectory => Path.GetDirectoryName(Uri.UnescapeDataString(new UriBuilder(Assembly.GetExecutingAssembly().CodeBase).Path));
+        internal static string RootDirectory => AppContext.BaseDirectory;
 
-        static void Main()
+        static void Main(string[] args)
         {
-            while (true)
+            var builder = Host.CreateApplicationBuilder(args);
+            using var host = builder.Build();
+            host.Start();
+            var stopping = host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
+
+            while (!stopping.IsCancellationRequested)
             {
                 Thread.Sleep(500);
                 //check to see if the bot updater is running.  If so, ignore.

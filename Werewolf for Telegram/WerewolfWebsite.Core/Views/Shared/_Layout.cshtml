@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="description" content="@ViewData["Description"]" />
+    <meta name="keywords" content="werewolf, ultimate werewolf, telegram, moderator, para949" />
+    <meta name="robots" content="index,follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:title" content="@ViewData["Title"]" />
+    <meta property="og:description" content="@ViewData["Description"]" />
+    <meta property="og:url" content="https://www.tgwerewolf.com" />
+    <meta property="og:image" content="/images/mob_banner 2.png" />
+    <title>@ViewData["Title"] - Werewolf for Telegram</title>
+    <link rel="stylesheet" href="~/Content/bootstrap.css" />
+    <link rel="stylesheet" href="~/Content/site.css" />
+    <link rel="stylesheet" href="~/Content/essentials.css" />
+    <link rel="stylesheet" href="~/Content/layout.css" />
+    <link rel="stylesheet" href="~/Content/layout-dark.css" />
+    <link rel="stylesheet" href="~/Content/header-1.css" />
+    <link rel="stylesheet" href="~/Content/color_scheme/red.css" />
+    <link rel="stylesheet" href="~/plugins/bootstrap/css/bootstrap.min.css" />
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400%7CRaleway:300,400,500,600,700%7CLato:300,400,400italic,600,700" rel="stylesheet" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="smoothscroll enable-animation">
+    <div id="wrapper">
+        <div id="header" class="sticky dark clearfix">
+            <header id="topNav">
+                <div class="container">
+                    <button class="btn btn-mobile" data-toggle="collapse" data-target=".nav-main-collapse">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <a asp-controller="Home" asp-action="Index" class="logo pull-left">
+                        <img src="~/images/werewolf title.png" style="width: 20em; height: auto;" alt="Werewolf for Telegram" />
+                    </a>
+                    <div class="navbar-collapse pull-right nav-main-collapse collapse">
+                        <nav class="nav-main">
+                            <ul id="topMain" class="nav nav-pills nav-main nav-onepage">
+                                <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+                                <li><a asp-controller="Stats" asp-action="Index">Stats</a></li>
+                                <li><a asp-controller="Home" asp-action="Achievements">Achievements</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </header>
+        </div>
+
+        @RenderBody()
+
+        <a href="#" id="toTop"></a>
+        <div id="preloader"><div class="inner"><span class="loader"></span></div></div>
+        <footer id="footer">
+            <div class="copyright">
+                <div class="container">
+                    <ul class="pull-right nomargin list-inline mobile-block">
+                        <li><a href="https://github.com/GreyWolfDev/Werewolf">GitHub</a></li>
+                        <li>&bull;</li>
+                        <li><a href="https://t.me/werewolfbot">@@werewolfbot</a></li>
+                    </ul>
+                    &copy; @DateTime.UtcNow.Year - Werewolf for Telegram
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>var plugin_path = '/plugins/';</script>
+    <script src="~/Scripts/jquery-1.10.2.min.js"></script>
+    <script src="~/Scripts/bootstrap.js"></script>
+    <script src="~/Scripts/respond.js"></script>
+    <script src="~/Scripts/scripts.js"></script>
+    <script src="~/Scripts/contact.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
